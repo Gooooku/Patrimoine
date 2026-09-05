@@ -272,6 +272,15 @@
       display: flex;
       justify-content: space-between;
     }
+    .poche-row-net {
+      font-weight: 600;
+      padding-top: 6px;
+      margin-top: 6px;
+      border-top: 1px solid #e5e5e7;
+      font-size: 14px;
+    }
+    .poche-row-net.positive { color: #248a3d; }
+    .poche-row-net.negative { color: #c72c22; }
     .pret-summary {
       margin-top: 14px;
       padding: 10px 12px;
@@ -530,7 +539,7 @@
             <div class="stat-value text-mono negative" id="stat-interets">—</div>
           </div>
           <div class="stat">
-            <div class="stat-label">Cash-flow net / mois</div>
+            <div class="stat-label">Résultat net / mois</div>
             <div class="stat-value text-mono" id="stat-cashflow">—</div>
           </div>
         </div>
@@ -1010,8 +1019,14 @@
       document.getElementById('stat-taux').textContent = fmtPct(tauxMoyenPondere());
       document.getElementById('stat-interets').textContent = '−' + fmtCHF(interetsMois);
 
-      // Cash-flow V1 = − intérêts (les revenus locatifs et dividendes viendront avec les modules dédiés)
-      const cashflow = -interetsMois;
+      // Rendement Bourse et gain mensuel estimé
+      const rendementBourse = pocheBourseXIRR();
+      const gainBourseMensuel = rendementBourse != null
+        ? pocheEtfMontant() * rendementBourse / 12
+        : 0;
+
+      // Résultat net = gains poches - intérêts (loyers immo viendront s'ajouter plus tard)
+      const cashflow = gainBourseMensuel - interetsMois;
       const cfEl = document.getElementById('stat-cashflow');
       cfEl.textContent = (cashflow >= 0 ? '+' : '−') + fmtCHF(Math.abs(cashflow));
       cfEl.classList.remove('positive', 'negative');
@@ -1022,9 +1037,9 @@
       const etf = pocheEtfMontant();
       const cash = pocheCashMontant();
       const segs = [
-        { label: 'Immo', montant: immo, cls: 'allocation-immo' },
-        { label: 'Bourse', montant: etf, cls: 'allocation-etf' },
-        { label: 'Cash', montant: cash, cls: 'allocation-cash' }
+        { label: 'Immo', montant: immo, cls: 'allocation-immo', gains: 0, showGain: false },
+        { label: 'Bourse', montant: etf, cls: 'allocation-etf', gains: gainBourseMensuel, showGain: rendementBourse != null && etf > 0 },
+        { label: 'Cash', montant: cash, cls: 'allocation-cash', gains: 0, showGain: false }
       ];
 
       const bar = document.getElementById('allocation-bar');
@@ -1049,7 +1064,18 @@
       // Détail par poche
       document.getElementById('poches-detail').innerHTML = segs.map(seg => {
         const pct = capital > 0 ? seg.montant / capital : 0;
-        const interetPoche = interetsMois * pct;
+        const coutInterets = interetsMois * pct;
+        const net = seg.gains - coutInterets;
+        const gainRow = seg.showGain ? `
+            <div class="poche-row-sub">
+              <span>Gain estimé / mois (au rythme actuel)</span>
+              <span class="text-mono positive">+${fmtCHF2(seg.gains)}</span>
+            </div>` : '';
+        const netRow = (seg.showGain || coutInterets > 0) ? `
+            <div class="poche-row-sub poche-row-net ${net >= 0 ? 'positive' : 'negative'}">
+              <span>Net / mois</span>
+              <span class="text-mono">${net >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(net))}</span>
+            </div>` : '';
         return `
           <div class="poche-row">
             <div class="poche-row-main">
@@ -1058,8 +1084,10 @@
             </div>
             <div class="poche-row-sub">
               <span>Coût intérêts / mois</span>
-              <span class="text-mono">−${fmtCHF2(interetPoche)}</span>
+              <span class="text-mono">−${fmtCHF2(coutInterets)}</span>
             </div>
+            ${gainRow}
+            ${netRow}
           </div>
         `;
       }).join('');
