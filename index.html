@@ -554,6 +554,47 @@
       margin-top: 6px;
       line-height: 1.4;
     }
+    /* Bilan section (synthèse en haut de carte ETF) */
+    .etf-bilan {
+      background: #f9f9fb;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 14px;
+      border-left: 4px solid #8e8e93;
+    }
+    .etf-bilan.positive { border-left-color: #34c759; background: linear-gradient(to right, #f0fdf4, #f9f9fb); }
+    .etf-bilan.negative { border-left-color: #ff3b30; background: linear-gradient(to right, #fef2f2, #f9f9fb); }
+    .bilan-title {
+      font-size: 11px;
+      color: #86868b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .bilan-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 5px 0;
+      font-size: 14px;
+    }
+    .bilan-row.bilan-gain {
+      border-top: 1px solid rgba(0,0,0,0.08);
+      margin-top: 4px;
+      padding-top: 10px;
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .bilan-row.bilan-gain.positive { color: #248a3d; }
+    .bilan-row.bilan-gain.negative { color: #c72c22; }
+    .bilan-row.bilan-rendement {
+      font-size: 14px;
+      font-weight: 600;
+      padding-top: 6px;
+    }
+    .bilan-row.bilan-rendement.positive { color: #248a3d; }
+    .bilan-row.bilan-rendement.negative { color: #c72c22; }
     @media (min-width: 768px) {
       header { padding: 20px 30px; }
       main { padding: 30px; }
@@ -1398,6 +1439,54 @@
         const realiseCls = s.plusValueRealisee >= 0 ? 'positive' : 'negative';
         const sign = n => (n >= 0 ? '+' : '−') + fmtCHF2(Math.abs(n));
 
+        // ==== BILAN section : la vue synthétique en haut de la carte ====
+        // Investi = coût actuel des positions détenues
+        // Valeur = valeur marché actuelle
+        // + Gain total (latent + réalisé + dividendes) en CHF et %
+        // + Rendement annualisé (XIRR)
+        const investi = s.coutTotal;
+        const valeur = s.valeur;
+        const gainTotal = s.gainTotal;
+        const gainPct = investi > 0 ? (gainTotal / investi) * 100 : null;
+        const bilanCls = gainTotal >= 0 ? 'positive' : 'negative';
+        const gainSign = gainTotal >= 0 ? '+' : '−';
+        const pctStr = gainPct != null ? ` (${gainTotal >= 0 ? '+' : '−'}${fmtPct(Math.abs(gainPct))})` : '';
+
+        const extraRealise = s.plusValueRealisee !== 0
+          ? `<div class="bilan-row"><span>P/V réalisée (ventes passées)</span><span class="text-mono ${realiseCls}">${sign(s.plusValueRealisee)}</span></div>`
+          : '';
+        const extraDivs = s.dividendes > 0
+          ? `<div class="bilan-row"><span>Dividendes reçus</span><span class="text-mono positive">+${fmtCHF2(s.dividendes)}</span></div>`
+          : '';
+
+        const rendementRow = s.rendementAnnualise != null
+          ? `<div class="bilan-row bilan-rendement ${s.rendementAnnualise >= 0 ? 'positive' : 'negative'}">
+              <span>Rendement annualisé</span>
+              <span class="text-mono">${s.rendementAnnualise >= 0 ? '+' : ''}${fmtPct(s.rendementAnnualise * 100)} / an</span>
+            </div>`
+          : '';
+
+        const bilanHtml = investi > 0 || gainTotal !== 0 ? `
+          <div class="etf-bilan ${bilanCls}">
+            <div class="bilan-title">💰 Bilan</div>
+            <div class="bilan-row">
+              <span>Investi (position actuelle)</span>
+              <span class="text-mono">${fmtCHF(investi)}</span>
+            </div>
+            <div class="bilan-row">
+              <span>Valeur aujourd'hui</span>
+              <span class="text-mono">${fmtCHF(valeur)}</span>
+            </div>
+            ${extraRealise}
+            ${extraDivs}
+            <div class="bilan-row bilan-gain ${bilanCls}">
+              <span>Gain total</span>
+              <span class="text-mono">${gainSign}${fmtCHF2(Math.abs(gainTotal))}${pctStr}</span>
+            </div>
+            ${rendementRow}
+          </div>
+        ` : '';
+
         // Spread rendement ETF vs coût du prêt
         const tauxPret = tauxMoyenPondere();
         let spreadHtml = '';
@@ -1528,49 +1617,23 @@
               </div>
             </div>
 
+            ${bilanHtml}
+
             <div class="etf-stats">
               <div>
                 <div class="etf-stat-label">Quantité</div>
                 <div class="etf-stat-value text-mono">${s.quantite.toFixed(2)}</div>
               </div>
               <div>
-                <div class="etf-stat-label">PRU</div>
+                <div class="etf-stat-label">PRU (prix de revient)</div>
                 <div class="etf-stat-value text-mono">${fmtCHF2(s.pru)}</div>
               </div>
               <div>
                 <div class="etf-stat-label">Valeur unitaire</div>
                 <div class="etf-stat-value text-mono">${fmtCHF2(etf.valeurActuelle || 0)}</div>
               </div>
-              <div>
-                <div class="etf-stat-label">Coût actuel</div>
-                <div class="etf-stat-value text-mono">${fmtCHF(s.coutTotal)}</div>
-              </div>
-              <div>
-                <div class="etf-stat-label">Valeur actuelle</div>
-                <div class="etf-stat-value text-mono">${fmtCHF(s.valeur)}</div>
-              </div>
-              <div>
-                <div class="etf-stat-label">P/V latente</div>
-                <div class="etf-stat-value text-mono ${latentCls}">${sign(s.plusValueLatente)}</div>
-              </div>
-              <div>
-                <div class="etf-stat-label">P/V réalisée</div>
-                <div class="etf-stat-value text-mono ${realiseCls}">${sign(s.plusValueRealisee)}</div>
-              </div>
-              <div>
-                <div class="etf-stat-label">Dividendes</div>
-                <div class="etf-stat-value text-mono positive">+${fmtCHF2(s.dividendes)}</div>
-              </div>
-              <div>
-                <div class="etf-stat-label">Rendement / an</div>
-                <div class="etf-stat-value text-mono ${s.rendementAnnualise == null ? '' : (s.rendementAnnualise >= 0 ? 'positive' : 'negative')}">${s.rendementAnnualise == null ? '—' : (s.rendementAnnualise >= 0 ? '+' : '') + fmtPct(s.rendementAnnualise * 100)}</div>
-              </div>
             </div>
 
-            <div class="etf-gain-total ${gainCls}">
-              <span class="etf-gain-label">Gain total (latent + réalisé + dividendes)</span>
-              <span class="etf-gain-value text-mono">${sign(s.gainTotal)}</span>
-            </div>
             ${spreadHtml}
 
             <div class="etf-subsection">
