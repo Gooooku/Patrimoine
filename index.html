@@ -440,6 +440,54 @@
       background: #f9f9fb;
       border-radius: 6px;
     }
+    .spread-line {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+    }
+    .spread-line.ok { background: #e8f7ea; color: #248a3d; }
+    .spread-line.err { background: #ffe5e2; color: #c72c22; }
+    .spread-line strong { font-size: 15px; }
+    .spread-verdict {
+      opacity: 0.8;
+      font-style: italic;
+      margin-left: auto;
+    }
+    /* Comparison card dashboard */
+    .comparison-card { background: white; }
+    .comparison-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #f0f0f2;
+    }
+    .comparison-row:last-child { border-bottom: none; }
+    .comparison-row.total {
+      padding-top: 14px;
+      margin-top: 4px;
+      border-top: 2px solid #1e3a5f;
+      border-bottom: none;
+      font-weight: 600;
+    }
+    .rate-value { font-family: inherit; font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; }
+    .rate-value.positive { color: #34c759; }
+    .rate-value.negative { color: #ff3b30; }
+    .rate-value.big { font-size: 22px; }
+    .verdict-banner {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .verdict-banner.ok { background: #e8f7ea; color: #248a3d; }
+    .verdict-banner.err { background: #ffe5e2; color: #c72c22; }
     @media (min-width: 768px) {
       header { padding: 20px 30px; }
       main { padding: 30px; }
@@ -491,6 +539,23 @@
           <h2>Répartition du capital</h2>
           <div class="allocation-bar" id="allocation-bar"></div>
           <div class="allocation-legend" id="allocation-legend"></div>
+        </div>
+
+        <div class="card comparison-card" id="comparison-card" style="display:none">
+          <h2>📊 Rendement Bourse vs Coût du prêt</h2>
+          <div class="comparison-row">
+            <span>Rendement Bourse annualisé</span>
+            <span class="rate-value" id="cmp-bourse">—</span>
+          </div>
+          <div class="comparison-row">
+            <span>Coût du prêt (taux moyen)</span>
+            <span class="rate-value negative" id="cmp-pret">—</span>
+          </div>
+          <div class="comparison-row total">
+            <span>Écart net (spread)</span>
+            <span class="rate-value big" id="cmp-ecart">—</span>
+          </div>
+          <div id="cmp-verdict"></div>
         </div>
 
         <div class="card">
@@ -758,6 +823,56 @@
       setTimeout(() => el.remove(), 2000);
     }
 
+    // XIRR : rendement annualisé interne (Newton-Raphson + fallback bisection)
+    function computeXIRR(cashflows) {
+      if (!cashflows || cashflows.length < 2) return null;
+      const sorted = cashflows
+        .filter(cf => cf.date && isFinite(cf.amount))
+        .sort((a, b) => a.date.localeCompare(b.date));
+      if (sorted.length < 2) return null;
+
+      const hasIn = sorted.some(cf => cf.amount > 0);
+      const hasOut = sorted.some(cf => cf.amount < 0);
+      if (!hasIn || !hasOut) return null;
+
+      const d0 = new Date(sorted[0].date);
+      const daysFrom = cf => (new Date(cf.date) - d0) / 86400000;
+
+      const npv = rate => sorted.reduce((s, cf) => {
+        const t = daysFrom(cf) / 365.25;
+        return s + cf.amount / Math.pow(1 + rate, t);
+      }, 0);
+
+      // Newton-Raphson
+      let rate = 0.1;
+      for (let i = 0; i < 50; i++) {
+        const f = npv(rate);
+        if (Math.abs(f) < 0.01) return rate;
+        const df = sorted.reduce((s, cf) => {
+          const t = daysFrom(cf) / 365.25;
+          return s - t * cf.amount / Math.pow(1 + rate, t + 1);
+        }, 0);
+        if (Math.abs(df) < 1e-10) break;
+        const newRate = rate - f / df;
+        if (!isFinite(newRate) || newRate < -0.99) break;
+        if (Math.abs(newRate - rate) < 1e-7) return newRate;
+        rate = newRate;
+      }
+
+      // Fallback bisection
+      let lo = -0.99, hi = 10;
+      let fLo = npv(lo);
+      if (fLo * npv(hi) > 0) return null;
+      for (let i = 0; i < 100; i++) {
+        const mid = (lo + hi) / 2;
+        const fMid = npv(mid);
+        if (Math.abs(fMid) < 0.01 || (hi - lo) < 1e-6) return mid;
+        if (fMid * fLo < 0) hi = mid;
+        else { lo = mid; fLo = fMid; }
+      }
+      return (lo + hi) / 2;
+    }
+
     // ==== CALCULS ====
     function trancheInterestRate(t) {
       if (t.typeTaux === 'fixe') return t.taux || 0;
@@ -827,12 +942,38 @@
       const dividendes = (etf.dividendes || []).reduce((s, d) => s + (d.montant || 0), 0);
       const gainTotal = plusValueLatente + realized + dividendes;
 
+      // XIRR : construire les flux (achats négatifs, ventes/divs/valeur actuelle positifs)
+      const cashflows = [];
+      (etf.mouvements || []).forEach(m => {
+        if (!m.date) return;
+        const q = m.quantite || 0, p = m.prix || 0, f = m.frais || 0;
+        if (m.type === 'achat') cashflows.push({ date: m.date, amount: -(q * p + f) });
+        else if (m.type === 'vente') cashflows.push({ date: m.date, amount: q * p - f });
+      });
+      (etf.dividendes || []).forEach(d => {
+        if (d.date) cashflows.push({ date: d.date, amount: d.montant || 0 });
+      });
+      if (valeur > 0) {
+        cashflows.push({ date: new Date().toISOString().slice(0, 10), amount: valeur });
+      }
+      const rendementAnnualise = computeXIRR(cashflows);
+
       return {
         quantite, pru, coutTotal, valeur,
         plusValueLatente, plusValueRealisee: realized,
         dividendes, gainTotal,
-        fraisAchatCumul, fraisVenteCumul
+        fraisAchatCumul, fraisVenteCumul,
+        rendementAnnualise, cashflows
       };
+    }
+
+    // Rendement annualisé global de la poche Bourse (agrège tous les cashflows des ETF)
+    function pocheBourseXIRR() {
+      const all = [];
+      data.etfs.forEach(etf => {
+        all.push(...computeEtfStats(etf).cashflows);
+      });
+      return computeXIRR(all);
     }
 
     function pocheCashMontant() {
@@ -922,6 +1063,33 @@
           </div>
         `;
       }).join('');
+
+      // Carte comparaison Bourse vs Coût du prêt
+      const cmpCard = document.getElementById('comparison-card');
+      const rendBourse = pocheBourseXIRR();
+      const tauxPret = tauxMoyenPondere();
+      if (rendBourse != null && data.pret.tranches.length > 0) {
+        cmpCard.style.display = 'block';
+        const rendPct = rendBourse * 100;
+        const spread = rendPct - tauxPret;
+        const bEl = document.getElementById('cmp-bourse');
+        bEl.textContent = (rendPct >= 0 ? '+' : '') + fmtPct(rendPct);
+        bEl.className = 'rate-value ' + (rendPct >= 0 ? 'positive' : 'negative');
+        document.getElementById('cmp-pret').textContent = '−' + fmtPct(tauxPret);
+        const eEl = document.getElementById('cmp-ecart');
+        eEl.textContent = (spread >= 0 ? '+' : '') + fmtPct(spread);
+        eEl.className = 'rate-value big ' + (spread >= 0 ? 'positive' : 'negative');
+        const verdict = document.getElementById('cmp-verdict');
+        if (spread >= 0) {
+          verdict.className = 'verdict-banner ok';
+          verdict.textContent = '✓ La bourse bat ton coût de financement : tu crées de la valeur avec l\'effet de levier.';
+        } else {
+          verdict.className = 'verdict-banner err';
+          verdict.textContent = '⚠ La bourse ne couvre pas ton coût de financement : chaque CHF investi te fait perdre à ce rythme.';
+        }
+      } else {
+        cmpCard.style.display = 'none';
+      }
     }
 
     // ==== PRET ====
@@ -1118,6 +1286,23 @@
         const realiseCls = s.plusValueRealisee >= 0 ? 'positive' : 'negative';
         const sign = n => (n >= 0 ? '+' : '−') + fmtCHF2(Math.abs(n));
 
+        // Spread rendement ETF vs coût du prêt
+        const tauxPret = tauxMoyenPondere();
+        let spreadHtml = '';
+        if (s.rendementAnnualise != null && data.pret.tranches.length > 0) {
+          const rendPct = s.rendementAnnualise * 100;
+          const spread = rendPct - tauxPret;
+          const spreadCls = spread >= 0 ? 'ok' : 'err';
+          const verb = spread >= 0 ? 'bat le coût du prêt de' : 'sous le coût du prêt de';
+          spreadHtml = `
+            <div class="spread-line ${spreadCls}">
+              Rendement ${rendPct >= 0 ? '+' : ''}${fmtPct(rendPct)} − Coût prêt ${fmtPct(tauxPret)} =
+              <strong>${spread >= 0 ? '+' : ''}${fmtPct(spread)}</strong>
+              <span class="spread-verdict">${verb} ${fmtPct(Math.abs(spread))}</span>
+            </div>
+          `;
+        }
+
         const mouvHtml = (etf.mouvements && etf.mouvements.length > 0)
           ? [...etf.mouvements].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(m => {
               const total = m.type === 'achat'
@@ -1194,12 +1379,17 @@
                 <div class="etf-stat-label">Dividendes</div>
                 <div class="etf-stat-value text-mono positive">+${fmtCHF2(s.dividendes)}</div>
               </div>
+              <div>
+                <div class="etf-stat-label">Rendement / an</div>
+                <div class="etf-stat-value text-mono ${s.rendementAnnualise == null ? '' : (s.rendementAnnualise >= 0 ? 'positive' : 'negative')}">${s.rendementAnnualise == null ? '—' : (s.rendementAnnualise >= 0 ? '+' : '') + fmtPct(s.rendementAnnualise * 100)}</div>
+              </div>
             </div>
 
             <div class="etf-gain-total ${gainCls}">
               <span class="etf-gain-label">Gain total (latent + réalisé + dividendes)</span>
               <span class="etf-gain-value text-mono">${sign(s.gainTotal)}</span>
             </div>
+            ${spreadHtml}
 
             <div class="etf-subsection">
               <div class="etf-subsection-header">
