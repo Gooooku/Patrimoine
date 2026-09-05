@@ -295,6 +295,151 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       font-size: 14px;
     }
+    /* ETF cards */
+    .etf-card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .etf-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 14px;
+      gap: 12px;
+    }
+    .etf-title h3 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .etf-title .isin {
+      font-size: 12px;
+      color: #86868b;
+      font-family: monospace;
+    }
+    .etf-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-icon {
+      background: #f0f0f2;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      color: #1d1d1f;
+    }
+    .btn-icon:hover { background: #e5e5e7; }
+    .etf-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+      padding: 12px;
+      background: #f9f9fb;
+      border-radius: 8px;
+      margin-bottom: 14px;
+    }
+    .etf-stat-label {
+      font-size: 11px;
+      color: #86868b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    .etf-stat-value {
+      font-size: 15px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .etf-stat-value.positive { color: #34c759; }
+    .etf-stat-value.negative { color: #ff3b30; }
+    .etf-gain-total {
+      padding: 12px 14px;
+      background: linear-gradient(135deg, #1e3a5f 0%, #2a4a75 100%);
+      color: white;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .etf-gain-total.negative {
+      background: linear-gradient(135deg, #7a2020 0%, #9c2f2f 100%);
+    }
+    .etf-gain-label {
+      font-size: 13px;
+      opacity: 0.9;
+    }
+    .etf-gain-value {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .etf-subsection {
+      margin-top: 14px;
+    }
+    .etf-subsection-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .etf-subsection-title {
+      font-size: 12px;
+      color: #86868b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    .btn-add-small {
+      background: #1e3a5f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .mouvement, .dividende {
+      background: #f9f9fb;
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .mouvement:hover, .dividende:hover { background: #f0f0f2; }
+    .mouvement-type {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: white;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+      margin-right: 8px;
+    }
+    .mouvement-type.achat { background: #34c759; }
+    .mouvement-type.vente { background: #ff9500; }
+    .mouvement-date { color: #86868b; margin-right: 8px; }
+    .mouvement-detail { color: #1d1d1f; }
+    .mouvement-frais { color: #86868b; font-size: 12px; }
+    .mouvement-total { font-weight: 600; }
+    .empty-inline {
+      text-align: center;
+      padding: 14px;
+      color: #86868b;
+      font-size: 13px;
+      background: #f9f9fb;
+      border-radius: 6px;
+    }
     @media (min-width: 768px) {
       header { padding: 20px 30px; }
       main { padding: 30px; }
@@ -310,7 +455,7 @@
     <button class="tab-btn active" data-screen="dashboard">Dashboard</button>
     <button class="tab-btn" data-screen="pret">Prêt</button>
     <button class="tab-btn" data-screen="biens">Biens</button>
-    <button class="tab-btn" data-screen="etf">ETF</button>
+    <button class="tab-btn" data-screen="etf">Bourse</button>
   </nav>
 
   <main>
@@ -385,13 +530,10 @@
       </div>
     </div>
 
-    <!-- ETF -->
+    <!-- BOURSE / ETF -->
     <div class="screen" id="screen-etf">
-      <div class="empty-state">
-        <p style="font-size:16px;">📈 Module bourse / ETF</p>
-        <p>Suivi des positions, achats échelonnés (DCA) et rendement net.</p>
-        <p style="margin-top:14px;font-size:13px;color:#c0c0c5;">À venir dans la prochaine itération</p>
-      </div>
+      <div id="etfs-list"></div>
+      <button class="btn mt-16" onclick="openEtfModal()">+ Nouvel ETF</button>
     </div>
   </main>
 
@@ -462,6 +604,94 @@
         <button class="btn btn-secondary" onclick="closeTrancheModal()">Annuler</button>
         <button class="btn btn-danger" id="btn-delete-tranche" onclick="deleteTranche()" style="display:none">Supprimer</button>
         <button class="btn" onclick="saveTranche()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal ETF -->
+  <div class="modal-overlay" id="modal-etf">
+    <div class="modal">
+      <h2 id="modal-etf-title">Nouvel ETF</h2>
+      <div class="form-row">
+        <label>Nom</label>
+        <input type="text" id="etf-nom" placeholder="Ex: Vanguard FTSE All-World (VWRL)">
+      </div>
+      <div class="form-row">
+        <label>ISIN</label>
+        <input type="text" id="etf-isin" placeholder="Ex: IE00B3RBWM25">
+      </div>
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Valeur actuelle par part (CHF)</label>
+          <input type="number" id="etf-valeur" step="0.01" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Date de la valeur</label>
+          <input type="date" id="etf-date-valeur">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeEtfModal()">Annuler</button>
+        <button class="btn btn-danger" id="btn-delete-etf" onclick="deleteEtf()" style="display:none">Supprimer</button>
+        <button class="btn" onclick="saveEtf()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Mouvement -->
+  <div class="modal-overlay" id="modal-mouvement">
+    <div class="modal">
+      <h2 id="modal-mouvement-title">Nouveau mouvement</h2>
+      <div class="form-row">
+        <label>Type</label>
+        <select id="mouv-type" onchange="onMouvTypeChange()">
+          <option value="achat">Achat</option>
+          <option value="vente">Vente</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label>Date</label>
+        <input type="date" id="mouv-date">
+      </div>
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Quantité (parts)</label>
+          <input type="number" id="mouv-quantite" step="0.0001" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Prix unitaire (CHF)</label>
+          <input type="number" id="mouv-prix" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Frais de <span id="mouv-frais-label">courtage</span> (CHF)</label>
+        <input type="number" id="mouv-frais" step="0.01" inputmode="decimal" placeholder="0.00">
+      </div>
+      <div id="mouv-preview" style="padding:10px 12px;background:#f9f9fb;border-radius:6px;font-size:13px;color:#6e6e73;margin-top:4px;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeMouvementModal()">Annuler</button>
+        <button class="btn btn-danger" id="btn-delete-mouvement" onclick="deleteMouvement()" style="display:none">Supprimer</button>
+        <button class="btn" onclick="saveMouvement()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Dividende -->
+  <div class="modal-overlay" id="modal-dividende">
+    <div class="modal">
+      <h2 id="modal-dividende-title">Nouveau dividende</h2>
+      <div class="form-row">
+        <label>Date</label>
+        <input type="date" id="div-date">
+      </div>
+      <div class="form-row">
+        <label>Montant reçu (CHF)</label>
+        <input type="number" id="div-montant" step="0.01" inputmode="decimal">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeDividendeModal()">Annuler</button>
+        <button class="btn btn-danger" id="btn-delete-dividende" onclick="deleteDividende()" style="display:none">Supprimer</button>
+        <button class="btn" onclick="saveDividende()">Enregistrer</button>
       </div>
     </div>
   </div>
@@ -559,9 +789,50 @@
     }
 
     function pocheEtfMontant() {
-      return data.etfs.reduce((s, e) => {
-        return s + (e.achats || []).reduce((ss, a) => ss + (a.quantite || 0) * (a.prix || 0), 0);
-      }, 0);
+      // Coût actuel des positions encore détenues (quantité × PRU)
+      return data.etfs.reduce((s, e) => s + computeEtfStats(e).coutTotal, 0);
+    }
+
+    function computeEtfStats(etf) {
+      const mouv = [...(etf.mouvements || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      let quantite = 0;
+      let coutTotal = 0;
+      let realized = 0;
+      let fraisAchatCumul = 0;
+      let fraisVenteCumul = 0;
+
+      mouv.forEach(m => {
+        const q = m.quantite || 0;
+        const p = m.prix || 0;
+        const f = m.frais || 0;
+        if (m.type === 'achat') {
+          quantite += q;
+          coutTotal += q * p + f;
+          fraisAchatCumul += f;
+        } else if (m.type === 'vente' && quantite > 0) {
+          const qtVendue = Math.min(q, quantite);
+          const pruAvant = coutTotal / quantite;
+          const coutSorti = qtVendue * pruAvant;
+          const prixVente = qtVendue * p - f;
+          realized += prixVente - coutSorti;
+          coutTotal -= coutSorti;
+          quantite -= qtVendue;
+          fraisVenteCumul += f;
+        }
+      });
+
+      const pru = quantite > 0 ? coutTotal / quantite : 0;
+      const valeur = quantite * (etf.valeurActuelle || 0);
+      const plusValueLatente = valeur - coutTotal;
+      const dividendes = (etf.dividendes || []).reduce((s, d) => s + (d.montant || 0), 0);
+      const gainTotal = plusValueLatente + realized + dividendes;
+
+      return {
+        quantite, pru, coutTotal, valeur,
+        plusValueLatente, plusValueRealisee: realized,
+        dividendes, gainTotal,
+        fraisAchatCumul, fraisVenteCumul
+      };
     }
 
     function pocheCashMontant() {
@@ -577,6 +848,7 @@
       document.querySelector('.tab-btn[data-screen="' + name + '"]').classList.add('active');
       if (name === 'dashboard') renderDashboard();
       if (name === 'pret') renderPret();
+      if (name === 'etf') renderEtfs();
     }
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -610,7 +882,7 @@
       const cash = pocheCashMontant();
       const segs = [
         { label: 'Immo', montant: immo, cls: 'allocation-immo' },
-        { label: 'ETF', montant: etf, cls: 'allocation-etf' },
+        { label: 'Bourse', montant: etf, cls: 'allocation-etf' },
         { label: 'Cash', montant: cash, cls: 'allocation-cash' }
       ];
 
@@ -825,6 +1097,363 @@
       closeTrancheModal();
       renderPret();
       toast('Tranche supprimée');
+    }
+
+    // ==== BOURSE / ETF ====
+    let editingEtfId = null;
+    let editingMouvementCtx = null; // { etfId, mouvementId }
+    let editingDividendeCtx = null; // { etfId, dividendeId }
+
+    function renderEtfs() {
+      const list = document.getElementById('etfs-list');
+      if (data.etfs.length === 0) {
+        list.innerHTML = '<div class="empty-state">Aucun ETF pour le moment.<br>Ajoute ton premier ETF pour commencer à suivre ta poche bourse.</div>';
+        return;
+      }
+
+      list.innerHTML = data.etfs.map(etf => {
+        const s = computeEtfStats(etf);
+        const gainCls = s.gainTotal >= 0 ? '' : 'negative';
+        const latentCls = s.plusValueLatente >= 0 ? 'positive' : 'negative';
+        const realiseCls = s.plusValueRealisee >= 0 ? 'positive' : 'negative';
+        const sign = n => (n >= 0 ? '+' : '−') + fmtCHF2(Math.abs(n));
+
+        const mouvHtml = (etf.mouvements && etf.mouvements.length > 0)
+          ? [...etf.mouvements].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(m => {
+              const total = m.type === 'achat'
+                ? (m.quantite || 0) * (m.prix || 0) + (m.frais || 0)
+                : (m.quantite || 0) * (m.prix || 0) - (m.frais || 0);
+              return `
+                <div class="mouvement" onclick="openMouvementModal('${etf.id}', '${m.id}')">
+                  <div>
+                    <span class="mouvement-type ${m.type}">${m.type}</span>
+                    <span class="mouvement-date">${formatDate(m.date)}</span>
+                    <span class="mouvement-detail">${(m.quantite || 0).toFixed(2)} × ${fmtCHF2(m.prix || 0)}</span>
+                    ${(m.frais || 0) > 0 ? `<span class="mouvement-frais"> · frais ${fmtCHF2(m.frais)}</span>` : ''}
+                  </div>
+                  <span class="mouvement-total text-mono">${m.type === 'achat' ? '−' : '+'}${fmtCHF2(total)}</span>
+                </div>
+              `;
+            }).join('')
+          : '<div class="empty-inline">Aucun mouvement</div>';
+
+        const divHtml = (etf.dividendes && etf.dividendes.length > 0)
+          ? [...etf.dividendes].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(d => `
+              <div class="dividende" onclick="openDividendeModal('${etf.id}', '${d.id}')">
+                <div>
+                  <span class="mouvement-date">${formatDate(d.date)}</span>
+                  <span class="mouvement-detail">Dividende</span>
+                </div>
+                <span class="mouvement-total text-mono">+${fmtCHF2(d.montant || 0)}</span>
+              </div>
+            `).join('')
+          : '<div class="empty-inline">Aucun dividende</div>';
+
+        return `
+          <div class="etf-card">
+            <div class="etf-header">
+              <div class="etf-title">
+                <h3>${escapeHtml(etf.nom || 'Sans nom')}</h3>
+                ${etf.isin ? `<div class="isin">${escapeHtml(etf.isin)}</div>` : ''}
+              </div>
+              <div class="etf-actions">
+                <button class="btn-icon" onclick="openEtfModal('${etf.id}')">Éditer</button>
+              </div>
+            </div>
+
+            <div class="etf-stats">
+              <div>
+                <div class="etf-stat-label">Quantité</div>
+                <div class="etf-stat-value text-mono">${s.quantite.toFixed(2)}</div>
+              </div>
+              <div>
+                <div class="etf-stat-label">PRU</div>
+                <div class="etf-stat-value text-mono">${fmtCHF2(s.pru)}</div>
+              </div>
+              <div>
+                <div class="etf-stat-label">Valeur unitaire</div>
+                <div class="etf-stat-value text-mono">${fmtCHF2(etf.valeurActuelle || 0)}</div>
+              </div>
+              <div>
+                <div class="etf-stat-label">Coût actuel</div>
+                <div class="etf-stat-value text-mono">${fmtCHF(s.coutTotal)}</div>
+              </div>
+              <div>
+                <div class="etf-stat-label">Valeur actuelle</div>
+                <div class="etf-stat-value text-mono">${fmtCHF(s.valeur)}</div>
+              </div>
+              <div>
+                <div class="etf-stat-label">P/V latente</div>
+                <div class="etf-stat-value text-mono ${latentCls}">${sign(s.plusValueLatente)}</div>
+              </div>
+              <div>
+                <div class="etf-stat-label">P/V réalisée</div>
+                <div class="etf-stat-value text-mono ${realiseCls}">${sign(s.plusValueRealisee)}</div>
+              </div>
+              <div>
+                <div class="etf-stat-label">Dividendes</div>
+                <div class="etf-stat-value text-mono positive">+${fmtCHF2(s.dividendes)}</div>
+              </div>
+            </div>
+
+            <div class="etf-gain-total ${gainCls}">
+              <span class="etf-gain-label">Gain total (latent + réalisé + dividendes)</span>
+              <span class="etf-gain-value text-mono">${sign(s.gainTotal)}</span>
+            </div>
+
+            <div class="etf-subsection">
+              <div class="etf-subsection-header">
+                <span class="etf-subsection-title">Mouvements (${(etf.mouvements || []).length})</span>
+                <button class="btn-add-small" onclick="openMouvementModal('${etf.id}')">+ Mouvement</button>
+              </div>
+              ${mouvHtml}
+            </div>
+
+            <div class="etf-subsection">
+              <div class="etf-subsection-header">
+                <span class="etf-subsection-title">Dividendes (${(etf.dividendes || []).length})</span>
+                <button class="btn-add-small" onclick="openDividendeModal('${etf.id}')">+ Dividende</button>
+              </div>
+              ${divHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ==== ETF MODAL ====
+    function openEtfModal(id) {
+      editingEtfId = id || null;
+      const modal = document.getElementById('modal-etf');
+      document.getElementById('etf-nom').value = '';
+      document.getElementById('etf-isin').value = '';
+      document.getElementById('etf-valeur').value = '';
+      document.getElementById('etf-date-valeur').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('btn-delete-etf').style.display = 'none';
+      document.getElementById('modal-etf-title').textContent = 'Nouvel ETF';
+
+      if (id) {
+        const etf = data.etfs.find(e => e.id === id);
+        if (etf) {
+          document.getElementById('modal-etf-title').textContent = 'Modifier l\'ETF';
+          document.getElementById('btn-delete-etf').style.display = 'inline-block';
+          document.getElementById('etf-nom').value = etf.nom || '';
+          document.getElementById('etf-isin').value = etf.isin || '';
+          document.getElementById('etf-valeur').value = etf.valeurActuelle || '';
+          document.getElementById('etf-date-valeur').value = etf.dateValeur || '';
+        }
+      }
+      modal.classList.add('active');
+    }
+
+    function closeEtfModal() {
+      document.getElementById('modal-etf').classList.remove('active');
+      editingEtfId = null;
+    }
+
+    function saveEtf() {
+      const nom = document.getElementById('etf-nom').value.trim();
+      if (!nom) { alert('Nom requis'); return; }
+      const etf = {
+        id: editingEtfId || uid(),
+        nom,
+        isin: document.getElementById('etf-isin').value.trim(),
+        valeurActuelle: parseFloat(document.getElementById('etf-valeur').value) || 0,
+        dateValeur: document.getElementById('etf-date-valeur').value,
+        mouvements: [],
+        dividendes: []
+      };
+      if (editingEtfId) {
+        const idx = data.etfs.findIndex(e => e.id === editingEtfId);
+        if (idx >= 0) {
+          etf.mouvements = data.etfs[idx].mouvements || [];
+          etf.dividendes = data.etfs[idx].dividendes || [];
+          data.etfs[idx] = etf;
+        }
+      } else {
+        data.etfs.push(etf);
+      }
+      saveData();
+      closeEtfModal();
+      renderEtfs();
+      toast('ETF enregistré');
+    }
+
+    function deleteEtf() {
+      if (!editingEtfId) return;
+      if (!confirm('Supprimer cet ETF et tous ses mouvements ?')) return;
+      data.etfs = data.etfs.filter(e => e.id !== editingEtfId);
+      saveData();
+      closeEtfModal();
+      renderEtfs();
+      toast('ETF supprimé');
+    }
+
+    // ==== MOUVEMENT MODAL ====
+    function openMouvementModal(etfId, mouvementId) {
+      editingMouvementCtx = { etfId, mouvementId: mouvementId || null };
+      const modal = document.getElementById('modal-mouvement');
+      document.getElementById('mouv-type').value = 'achat';
+      document.getElementById('mouv-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('mouv-quantite').value = '';
+      document.getElementById('mouv-prix').value = '';
+      document.getElementById('mouv-frais').value = '';
+      document.getElementById('btn-delete-mouvement').style.display = 'none';
+      document.getElementById('modal-mouvement-title').textContent = 'Nouveau mouvement';
+
+      if (mouvementId) {
+        const etf = data.etfs.find(e => e.id === etfId);
+        const m = etf && (etf.mouvements || []).find(x => x.id === mouvementId);
+        if (m) {
+          document.getElementById('modal-mouvement-title').textContent = 'Modifier le mouvement';
+          document.getElementById('btn-delete-mouvement').style.display = 'inline-block';
+          document.getElementById('mouv-type').value = m.type;
+          document.getElementById('mouv-date').value = m.date || '';
+          document.getElementById('mouv-quantite').value = m.quantite || '';
+          document.getElementById('mouv-prix').value = m.prix || '';
+          document.getElementById('mouv-frais').value = m.frais || '';
+        }
+      }
+      onMouvTypeChange();
+      updateMouvPreview();
+      ['mouv-type', 'mouv-quantite', 'mouv-prix', 'mouv-frais'].forEach(id => {
+        document.getElementById(id).oninput = updateMouvPreview;
+      });
+      document.getElementById('mouv-type').onchange = () => { onMouvTypeChange(); updateMouvPreview(); };
+      modal.classList.add('active');
+    }
+
+    function closeMouvementModal() {
+      document.getElementById('modal-mouvement').classList.remove('active');
+      editingMouvementCtx = null;
+    }
+
+    function onMouvTypeChange() {
+      const type = document.getElementById('mouv-type').value;
+      document.getElementById('mouv-frais-label').textContent = type === 'achat' ? 'courtage à l\'achat' : 'courtage à la vente';
+    }
+
+    function updateMouvPreview() {
+      const type = document.getElementById('mouv-type').value;
+      const q = parseFloat(document.getElementById('mouv-quantite').value) || 0;
+      const p = parseFloat(document.getElementById('mouv-prix').value) || 0;
+      const f = parseFloat(document.getElementById('mouv-frais').value) || 0;
+      const brut = q * p;
+      const total = type === 'achat' ? brut + f : brut - f;
+      const label = type === 'achat' ? 'Coût total (à débourser)' : 'Montant net reçu';
+      document.getElementById('mouv-preview').innerHTML = q > 0 && p > 0
+        ? `${label} : <strong>${fmtCHF2(total)}</strong> <span style="color:#86868b">(${fmtCHF2(brut)} ${type === 'achat' ? '+' : '−'} ${fmtCHF2(f)} frais)</span>`
+        : 'Saisis quantité et prix pour voir le total';
+    }
+
+    function saveMouvement() {
+      const { etfId, mouvementId } = editingMouvementCtx;
+      const etf = data.etfs.find(e => e.id === etfId);
+      if (!etf) return;
+      if (!etf.mouvements) etf.mouvements = [];
+
+      const q = parseFloat(document.getElementById('mouv-quantite').value) || 0;
+      const p = parseFloat(document.getElementById('mouv-prix').value) || 0;
+      if (q <= 0 || p <= 0) { alert('Quantité et prix requis'); return; }
+
+      const m = {
+        id: mouvementId || uid(),
+        type: document.getElementById('mouv-type').value,
+        date: document.getElementById('mouv-date').value,
+        quantite: q,
+        prix: p,
+        frais: parseFloat(document.getElementById('mouv-frais').value) || 0
+      };
+
+      if (mouvementId) {
+        const idx = etf.mouvements.findIndex(x => x.id === mouvementId);
+        if (idx >= 0) etf.mouvements[idx] = m;
+      } else {
+        etf.mouvements.push(m);
+      }
+      saveData();
+      closeMouvementModal();
+      renderEtfs();
+      toast('Mouvement enregistré');
+    }
+
+    function deleteMouvement() {
+      if (!editingMouvementCtx || !editingMouvementCtx.mouvementId) return;
+      if (!confirm('Supprimer ce mouvement ?')) return;
+      const { etfId, mouvementId } = editingMouvementCtx;
+      const etf = data.etfs.find(e => e.id === etfId);
+      if (!etf) return;
+      etf.mouvements = (etf.mouvements || []).filter(m => m.id !== mouvementId);
+      saveData();
+      closeMouvementModal();
+      renderEtfs();
+      toast('Mouvement supprimé');
+    }
+
+    // ==== DIVIDENDE MODAL ====
+    function openDividendeModal(etfId, dividendeId) {
+      editingDividendeCtx = { etfId, dividendeId: dividendeId || null };
+      const modal = document.getElementById('modal-dividende');
+      document.getElementById('div-date').value = new Date().toISOString().slice(0, 10);
+      document.getElementById('div-montant').value = '';
+      document.getElementById('btn-delete-dividende').style.display = 'none';
+      document.getElementById('modal-dividende-title').textContent = 'Nouveau dividende';
+
+      if (dividendeId) {
+        const etf = data.etfs.find(e => e.id === etfId);
+        const d = etf && (etf.dividendes || []).find(x => x.id === dividendeId);
+        if (d) {
+          document.getElementById('modal-dividende-title').textContent = 'Modifier le dividende';
+          document.getElementById('btn-delete-dividende').style.display = 'inline-block';
+          document.getElementById('div-date').value = d.date || '';
+          document.getElementById('div-montant').value = d.montant || '';
+        }
+      }
+      modal.classList.add('active');
+    }
+
+    function closeDividendeModal() {
+      document.getElementById('modal-dividende').classList.remove('active');
+      editingDividendeCtx = null;
+    }
+
+    function saveDividende() {
+      const { etfId, dividendeId } = editingDividendeCtx;
+      const etf = data.etfs.find(e => e.id === etfId);
+      if (!etf) return;
+      if (!etf.dividendes) etf.dividendes = [];
+
+      const montant = parseFloat(document.getElementById('div-montant').value) || 0;
+      if (montant <= 0) { alert('Montant requis'); return; }
+
+      const d = {
+        id: dividendeId || uid(),
+        date: document.getElementById('div-date').value,
+        montant
+      };
+      if (dividendeId) {
+        const idx = etf.dividendes.findIndex(x => x.id === dividendeId);
+        if (idx >= 0) etf.dividendes[idx] = d;
+      } else {
+        etf.dividendes.push(d);
+      }
+      saveData();
+      closeDividendeModal();
+      renderEtfs();
+      toast('Dividende enregistré');
+    }
+
+    function deleteDividende() {
+      if (!editingDividendeCtx || !editingDividendeCtx.dividendeId) return;
+      if (!confirm('Supprimer ce dividende ?')) return;
+      const { etfId, dividendeId } = editingDividendeCtx;
+      const etf = data.etfs.find(e => e.id === etfId);
+      if (!etf) return;
+      etf.dividendes = (etf.dividendes || []).filter(d => d.id !== dividendeId);
+      saveData();
+      closeDividendeModal();
+      renderEtfs();
+      toast('Dividende supprimé');
     }
 
     // ==== INIT ====
