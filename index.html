@@ -25,8 +25,22 @@
       top: 0;
       z-index: 100;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
     header h1 { font-size: 20px; font-weight: 600; }
+    .btn-header {
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      font-size: 20px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      line-height: 1;
+    }
+    .btn-header:hover { background: rgba(255,255,255,0.12); }
     nav {
       background: white;
       display: flex;
@@ -497,6 +511,49 @@
     }
     .verdict-banner.ok { background: #e8f7ea; color: #248a3d; }
     .verdict-banner.err { background: #ffe5e2; color: #c72c22; }
+    .updated-badge {
+      font-size: 11px;
+      color: #86868b;
+      margin-top: 4px;
+    }
+    .annual-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .annual-table th, .annual-table td {
+      padding: 8px 10px;
+      text-align: right;
+      border-bottom: 1px solid #f0f0f2;
+    }
+    .annual-table th {
+      font-size: 11px;
+      color: #86868b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-weight: 600;
+      text-align: right;
+    }
+    .annual-table th:first-child, .annual-table td:first-child { text-align: left; }
+    .annual-table td { font-variant-numeric: tabular-nums; }
+    .annual-table td.market { color: #86868b; font-weight: 400; }
+    .annual-table td.positive { color: #248a3d; font-weight: 600; }
+    .annual-table td.negative { color: #c72c22; font-weight: 600; }
+    .annual-table tr.ytd td:first-child::after {
+      content: ' (en cours)';
+      color: #86868b;
+      font-weight: normal;
+      font-size: 11px;
+    }
+    .btn-icon.primary { background: #1e3a5f; color: white; }
+    .btn-icon.primary:hover { background: #2a4a75; }
+    .btn-icon[disabled] { opacity: 0.4; cursor: not-allowed; }
+    .settings-help {
+      font-size: 12px;
+      color: #86868b;
+      margin-top: 6px;
+      line-height: 1.4;
+    }
     @media (min-width: 768px) {
       header { padding: 20px 30px; }
       main { padding: 30px; }
@@ -506,6 +563,7 @@
 <body>
   <header>
     <h1>💰 Patrimoine</h1>
+    <button class="btn-header" onclick="openSettingsModal()" title="Paramètres">⚙️</button>
   </header>
 
   <nav>
@@ -694,6 +752,11 @@
         <label>ISIN</label>
         <input type="text" id="etf-isin" placeholder="Ex: IE00B3RBWM25">
       </div>
+      <div class="form-row">
+        <label>Symbole Yahoo (pour cours live)</label>
+        <input type="text" id="etf-symbol" placeholder="Ex: VWRA.SW">
+        <div class="settings-help">Le suffixe indique la bourse : .SW = SIX Suisse, .L = Londres, sans suffixe = US</div>
+      </div>
       <div class="form-row-inline">
         <div class="form-row">
           <label>Valeur actuelle par part (CHF)</label>
@@ -750,6 +813,24 @@
     </div>
   </div>
 
+  <!-- Modal Settings -->
+  <div class="modal-overlay" id="modal-settings">
+    <div class="modal">
+      <h2>⚙️ Paramètres</h2>
+      <div class="form-row">
+        <label>URL du proxy Cloudflare Worker</label>
+        <input type="url" id="settings-worker-url" placeholder="https://patrimoine-quote.tonNom.workers.dev">
+        <div class="settings-help">
+          Utilisé pour récupérer les cours ETF en direct via Yahoo Finance. Configuré une fois, retenu ensuite.
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeSettingsModal()">Annuler</button>
+        <button class="btn" onclick="saveSettings()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Dividende -->
   <div class="modal-overlay" id="modal-dividende">
     <div class="modal">
@@ -776,6 +857,9 @@
     const DEFAULT_DATA = {
       version: 1,
       updatedAt: null,
+      settings: {
+        quoteProxyUrl: ''
+      },
       pret: {
         montantTotal: 0,
         dateDebut: '',
@@ -1331,6 +1415,73 @@
           `;
         }
 
+        // Performance annuelle depuis l'historique importé
+        const annual = computeAnnualPerformance(etf);
+        let annualHtml = '';
+        let hasNote = false;
+        if (annual.length > 0) {
+          const rows = annual.slice(-8).reverse().map(a => {
+            const trCls = a.isCurrentYear ? 'ytd' : '';
+            const marketPrefix = a.marketReturnPct >= 0 ? '+' : '';
+            const marketCell = `<td class="market">${marketPrefix}${fmtPct(a.marketReturnPct)}</td>`;
+
+            let userCell = '<td>—</td>';
+            let spreadCell = '<td>—</td>';
+            if (a.userReturnPct != null) {
+              const uCls = a.userReturnPct >= 0 ? 'positive' : 'negative';
+              const uPrefix = a.userReturnPct >= 0 ? '+' : '';
+              const noteStr = a.note || '';
+              userCell = `<td class="${uCls}">${uPrefix}${fmtPct(a.userReturnPct)}${noteStr}</td>`;
+              if (a.note) hasNote = true;
+              if (data.pret.tranches.length > 0) {
+                const spread = a.userReturnPct - tauxPret;
+                const sCls = spread >= 0 ? 'positive' : 'negative';
+                spreadCell = `<td class="${sCls}">${spread >= 0 ? '+' : ''}${fmtPct(spread)}</td>`;
+              }
+            }
+
+            return `
+              <tr class="${trCls}">
+                <td>${a.year}</td>
+                ${marketCell}
+                ${userCell}
+                ${spreadCell}
+              </tr>
+            `;
+          }).join('');
+          const noteText = hasNote
+            ? '<div class="settings-help" style="margin-top:8px;">* Position détenue moins de 90 jours : le taux annualisé peut être trompeur.</div>'
+            : '';
+          annualHtml = `
+            <div class="etf-subsection">
+              <div class="etf-subsection-header">
+                <span class="etf-subsection-title">📅 Performance par année</span>
+              </div>
+              <table class="annual-table">
+                <thead>
+                  <tr>
+                    <th>Année</th>
+                    <th>Marché</th>
+                    <th>Mon rend.</th>
+                    <th>vs Prêt</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+              ${noteText}
+            </div>
+          `;
+        } else if (etf.symbol) {
+          annualHtml = `
+            <div class="etf-subsection">
+              <div class="etf-subsection-header">
+                <span class="etf-subsection-title">📅 Performance par année</span>
+              </div>
+              <div class="empty-inline">Clique sur <strong>📥 Historique</strong> ci-dessus pour importer 10 ans de données et afficher le rendement année par année.</div>
+            </div>
+          `;
+        }
+
         const mouvHtml = (etf.mouvements && etf.mouvements.length > 0)
           ? [...etf.mouvements].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(m => {
               const total = m.type === 'achat'
@@ -1367,9 +1518,12 @@
             <div class="etf-header">
               <div class="etf-title">
                 <h3>${escapeHtml(etf.nom || 'Sans nom')}</h3>
-                ${etf.isin ? `<div class="isin">${escapeHtml(etf.isin)}</div>` : ''}
+                ${etf.isin ? `<div class="isin">${escapeHtml(etf.isin)}${etf.symbol ? ' · ' + escapeHtml(etf.symbol) : ''}</div>` : (etf.symbol ? `<div class="isin">${escapeHtml(etf.symbol)}</div>` : '')}
+                ${etf.dateValeur ? `<div class="updated-badge">Cours mis à jour le ${formatDate(etf.dateValeur)}</div>` : ''}
               </div>
               <div class="etf-actions">
+                ${etf.symbol ? `<button class="btn-icon primary" onclick="refreshEtfPrice('${etf.id}')" title="Récupérer le cours actuel">🔄 Cours</button>` : ''}
+                ${etf.symbol ? `<button class="btn-icon" onclick="importEtfHistory('${etf.id}')" title="Importer l'historique 10 ans">📥 Historique</button>` : ''}
                 <button class="btn-icon" onclick="openEtfModal('${etf.id}')">Éditer</button>
               </div>
             </div>
@@ -1434,6 +1588,8 @@
               </div>
               ${divHtml}
             </div>
+
+            ${annualHtml}
           </div>
         `;
       }).join('');
@@ -1445,6 +1601,7 @@
       const modal = document.getElementById('modal-etf');
       document.getElementById('etf-nom').value = '';
       document.getElementById('etf-isin').value = '';
+      document.getElementById('etf-symbol').value = '';
       document.getElementById('etf-valeur').value = '';
       document.getElementById('etf-date-valeur').value = new Date().toISOString().slice(0, 10);
       document.getElementById('btn-delete-etf').style.display = 'none';
@@ -1457,6 +1614,7 @@
           document.getElementById('btn-delete-etf').style.display = 'inline-block';
           document.getElementById('etf-nom').value = etf.nom || '';
           document.getElementById('etf-isin').value = etf.isin || '';
+          document.getElementById('etf-symbol').value = etf.symbol || '';
           document.getElementById('etf-valeur').value = etf.valeurActuelle || '';
           document.getElementById('etf-date-valeur').value = etf.dateValeur || '';
         }
@@ -1476,16 +1634,19 @@
         id: editingEtfId || uid(),
         nom,
         isin: document.getElementById('etf-isin').value.trim(),
+        symbol: document.getElementById('etf-symbol').value.trim(),
         valeurActuelle: parseFloat(document.getElementById('etf-valeur').value) || 0,
         dateValeur: document.getElementById('etf-date-valeur').value,
         mouvements: [],
-        dividendes: []
+        dividendes: [],
+        history: []
       };
       if (editingEtfId) {
         const idx = data.etfs.findIndex(e => e.id === editingEtfId);
         if (idx >= 0) {
           etf.mouvements = data.etfs[idx].mouvements || [];
           etf.dividendes = data.etfs[idx].dividendes || [];
+          etf.history = data.etfs[idx].history || [];
           data.etfs[idx] = etf;
         }
       } else {
@@ -1672,6 +1833,217 @@
       closeDividendeModal();
       renderEtfs();
       toast('Dividende supprimé');
+    }
+
+    // ==== SETTINGS MODAL ====
+    function openSettingsModal() {
+      document.getElementById('settings-worker-url').value = (data.settings && data.settings.quoteProxyUrl) || '';
+      document.getElementById('modal-settings').classList.add('active');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('modal-settings').classList.remove('active');
+    }
+
+    function saveSettings() {
+      if (!data.settings) data.settings = {};
+      data.settings.quoteProxyUrl = document.getElementById('settings-worker-url').value.trim();
+      saveData();
+      closeSettingsModal();
+      toast('Paramètres enregistrés');
+    }
+
+    // ==== LIVE QUOTES via Cloudflare Worker ====
+    function proxyUrl() {
+      const raw = (data.settings && data.settings.quoteProxyUrl) || '';
+      return raw.replace(/\/+$/, '');
+    }
+
+    async function fetchQuoteData(symbol, range, interval) {
+      const base = proxyUrl();
+      if (!base) throw new Error('URL du proxy non configurée. Ouvre ⚙️ Paramètres pour la définir.');
+      const url = `${base}/?symbol=${encodeURIComponent(symbol)}&range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Erreur HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      return json;
+    }
+
+    async function refreshEtfPrice(etfId, silent) {
+      const etf = data.etfs.find(e => e.id === etfId);
+      if (!etf || !etf.symbol) return;
+      try {
+        if (!silent) toast('Récupération du cours...');
+        const q = await fetchQuoteData(etf.symbol, '1d', '1d');
+        if (q.price == null) throw new Error('Prix non disponible');
+        etf.valeurActuelle = q.price;
+        etf.dateValeur = new Date().toISOString().slice(0, 10);
+        saveData();
+        renderEtfs();
+        if (!silent) toast('Cours à jour : ' + fmtCHF2(q.price) + ' ' + (q.currency || ''));
+      } catch (e) {
+        alert('Erreur lors de la récupération du cours :\n' + e.message);
+      }
+    }
+
+    async function importEtfHistory(etfId) {
+      const etf = data.etfs.find(e => e.id === etfId);
+      if (!etf || !etf.symbol) return;
+      try {
+        toast('Import de l\'historique (peut prendre quelques secondes)...');
+        const q = await fetchQuoteData(etf.symbol, '10y', '1mo');
+        if (!q.timestamps || !q.closes || q.timestamps.length === 0) {
+          throw new Error('Aucune donnée historique reçue');
+        }
+        const hist = [];
+        for (let i = 0; i < q.timestamps.length; i++) {
+          if (q.closes[i] != null && isFinite(q.closes[i])) {
+            hist.push({
+              date: new Date(q.timestamps[i] * 1000).toISOString().slice(0, 10),
+              close: q.closes[i]
+            });
+          }
+        }
+        etf.history = hist;
+        // Met aussi à jour la valeur actuelle avec le dernier point disponible
+        if (hist.length > 0) {
+          const last = hist[hist.length - 1];
+          etf.valeurActuelle = last.close;
+          etf.dateValeur = last.date;
+        }
+        saveData();
+        renderEtfs();
+        toast(hist.length + ' points d\'historique importés');
+      } catch (e) {
+        alert('Erreur lors de l\'import de l\'historique :\n' + e.message);
+      }
+    }
+
+    async function refreshAllPrices() {
+      const withSymbol = data.etfs.filter(e => e.symbol);
+      if (withSymbol.length === 0) {
+        alert('Aucun ETF n\'a de symbole Yahoo configuré');
+        return;
+      }
+      if (!proxyUrl()) {
+        alert('URL du proxy non configurée. Ouvre ⚙️ Paramètres pour la définir.');
+        return;
+      }
+      toast('Actualisation de ' + withSymbol.length + ' ETF...');
+      for (const etf of withSymbol) {
+        try { await refreshEtfPrice(etf.id, true); } catch (e) { /* silent */ }
+      }
+      toast('Actualisation terminée');
+      renderDashboard();
+    }
+
+    // Calcul du rendement par année civile : marché + personnel (XIRR restreint à l'année)
+    function computeAnnualPerformance(etf) {
+      if (!etf.history || etf.history.length < 2) return [];
+      const byYear = {};
+      etf.history.forEach(h => {
+        const year = h.date.slice(0, 4);
+        if (!byYear[year]) byYear[year] = [];
+        byYear[year].push(h);
+      });
+      const years = Object.keys(byYear).sort();
+      const currentYear = String(new Date().getFullYear());
+      const today = new Date().toISOString().slice(0, 10);
+      const result = [];
+
+      for (let i = 0; i < years.length; i++) {
+        const year = years[i];
+        const points = byYear[year];
+        let startPrice;
+        if (i > 0) {
+          const prev = byYear[years[i - 1]];
+          startPrice = prev[prev.length - 1].close;
+        } else {
+          startPrice = points[0].close;
+        }
+        const endPrice = points[points.length - 1].close;
+        if (!startPrice || !endPrice) continue;
+        const marketReturnPct = ((endPrice / startPrice) - 1) * 100;
+
+        const isCurrentYear = year === currentYear;
+        const yearStartDate = year + '-01-01';
+        const yearEndDate = isCurrentYear ? today : year + '-12-31';
+
+        // Quantité détenue AVANT le début de l'année
+        let qtyStart = 0;
+        const mouvBefore = (etf.mouvements || []).filter(m => (m.date || '') < yearStartDate);
+        mouvBefore.forEach(m => {
+          const q = m.quantite || 0;
+          if (m.type === 'achat') qtyStart += q;
+          else if (m.type === 'vente') qtyStart = Math.max(0, qtyStart - q);
+        });
+
+        // Mouvements et dividendes DANS l'année
+        const mouvIn = (etf.mouvements || []).filter(m => {
+          const d = m.date || '';
+          return d >= yearStartDate && d <= yearEndDate;
+        });
+        const divIn = (etf.dividendes || []).filter(d => {
+          const dd = d.date || '';
+          return dd >= yearStartDate && dd <= yearEndDate;
+        });
+
+        // Quantité à la fin de l'année
+        let qtyEnd = qtyStart;
+        mouvIn.forEach(m => {
+          const q = m.quantite || 0;
+          if (m.type === 'achat') qtyEnd += q;
+          else if (m.type === 'vente') qtyEnd = Math.max(0, qtyEnd - q);
+        });
+
+        // Prix fin d'année pour le calcul user (valeur actuelle si année en cours)
+        const endPriceUser = isCurrentYear ? (etf.valeurActuelle || endPrice) : endPrice;
+
+        let userReturnPct = null;
+        let note = null;
+
+        // Si aucune position ni mouvement, pas de rendement perso
+        if (qtyStart === 0 && mouvIn.length === 0 && divIn.length === 0) {
+          userReturnPct = null;
+        } else {
+          const flows = [];
+          if (qtyStart > 0 && startPrice > 0) {
+            flows.push({ date: yearStartDate, amount: -qtyStart * startPrice });
+          }
+          mouvIn.forEach(m => {
+            const q = m.quantite || 0, p = m.prix || 0, f = m.frais || 0;
+            if (m.type === 'achat') flows.push({ date: m.date, amount: -(q * p + f) });
+            else if (m.type === 'vente') flows.push({ date: m.date, amount: q * p - f });
+          });
+          divIn.forEach(d => flows.push({ date: d.date, amount: d.montant || 0 }));
+          if (qtyEnd > 0 && endPriceUser > 0) {
+            flows.push({ date: yearEndDate, amount: qtyEnd * endPriceUser });
+          }
+          const xirr = computeXIRR(flows);
+          userReturnPct = xirr != null ? xirr * 100 : null;
+
+          // Marquer d'un astérisque si la période effective est courte
+          if (userReturnPct != null) {
+            const firstMoment = qtyStart > 0
+              ? yearStartDate
+              : (mouvIn.length > 0 ? mouvIn.map(m => m.date).sort()[0] : yearStartDate);
+            const days = (new Date(yearEndDate) - new Date(firstMoment)) / 86400000;
+            if (days > 0 && days < 90) note = '*';
+          }
+        }
+
+        result.push({
+          year,
+          startPrice,
+          endPrice,
+          marketReturnPct,
+          userReturnPct,
+          isCurrentYear,
+          note
+        });
+      }
+      return result;
     }
 
     // ==== INIT ====
