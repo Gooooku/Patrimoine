@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Patrimoine">
+  <meta name="theme-color" content="#1e3a5f">
+  <title>Patrimoine</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 40px;
+    }
+    header {
+      background: #1e3a5f;
+      color: white;
+      padding: 16px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    header h1 { font-size: 20px; font-weight: 600; }
+    nav {
+      background: white;
+      display: flex;
+      border-bottom: 1px solid #e5e5e7;
+      position: sticky;
+      top: 56px;
+      z-index: 99;
+    }
+    nav button {
+      flex: 1;
+      padding: 14px 8px;
+      background: none;
+      border: none;
+      font-size: 14px;
+      color: #86868b;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    nav button.active {
+      color: #1e3a5f;
+      border-bottom-color: #1e3a5f;
+      font-weight: 600;
+    }
+    main {
+      padding: 20px;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .card h2 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .stat {
+      background: white;
+      padding: 16px;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .stat-label {
+      font-size: 11px;
+      color: #86868b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .stat-value.positive { color: #34c759; }
+    .stat-value.negative { color: #ff3b30; }
+    .allocation-bar {
+      display: flex;
+      height: 32px;
+      border-radius: 8px;
+      overflow: hidden;
+      margin: 12px 0;
+      background: #f0f0f2;
+    }
+    .allocation-segment {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      font-weight: 600;
+      min-width: 30px;
+    }
+    .allocation-immo { background: #007aff; }
+    .allocation-etf { background: #34c759; }
+    .allocation-cash { background: #8e8e93; }
+    .allocation-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 13px;
+    }
+    .allocation-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .allocation-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #1e3a5f;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      -webkit-appearance: none;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-secondary { background: #e5e5e7; color: #1d1d1f; }
+    .btn-danger { background: #ff3b30; }
+    .form-row { margin-bottom: 14px; }
+    .form-row label {
+      display: block;
+      font-size: 13px;
+      color: #86868b;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .form-row input, .form-row select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d2d2d7;
+      border-radius: 8px;
+      font-size: 15px;
+      background: white;
+      -webkit-appearance: none;
+      font-family: inherit;
+    }
+    .form-row input:focus, .form-row select:focus {
+      outline: none;
+      border-color: #1e3a5f;
+    }
+    .form-row-inline { display: flex; gap: 12px; }
+    .form-row-inline > .form-row { flex: 1; }
+    .tranche {
+      background: #f9f9fb;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 10px;
+      border-left: 3px solid #1e3a5f;
+      cursor: pointer;
+    }
+    .tranche.saron { border-left-color: #ff9500; }
+    .tranche.variable { border-left-color: #af52de; }
+    .tranche-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .tranche-name { font-weight: 600; font-size: 14px; }
+    .tranche-type {
+      font-size: 10px;
+      background: #1e3a5f;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .tranche-type.saron { background: #ff9500; }
+    .tranche-type.variable { background: #af52de; }
+    .tranche-amounts {
+      display: flex;
+      justify-content: space-between;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .tranche-details {
+      font-size: 13px;
+      color: #6e6e73;
+      margin-top: 4px;
+    }
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      max-width: 500px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal h2 { margin-bottom: 16px; font-size: 18px; }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .modal-actions button { flex: 1; }
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #86868b;
+    }
+    .empty-state p { margin: 8px 0; }
+    .text-mono { font-variant-numeric: tabular-nums; }
+    .mt-16 { margin-top: 16px; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+    .taux-fields { display: none; }
+    .taux-fields.active { display: block; }
+    .section-title {
+      font-size: 12px;
+      color: #86868b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 20px 0 8px;
+      padding: 0 4px;
+      font-weight: 600;
+    }
+    .poche-row {
+      padding: 12px 0;
+      border-bottom: 1px solid #f0f0f2;
+    }
+    .poche-row:last-child { border-bottom: none; }
+    .poche-row-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .poche-row-sub {
+      font-size: 13px;
+      color: #86868b;
+      margin-top: 4px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .pret-summary {
+      margin-top: 14px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+    }
+    .pret-summary.ok { background: #e8f7ea; color: #248a3d; }
+    .pret-summary.warn { background: #fff4e5; color: #b25c00; }
+    .pret-summary.err { background: #ffe5e2; color: #c72c22; }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e3a5f;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      z-index: 2000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      font-size: 14px;
+    }
+    @media (min-width: 768px) {
+      header { padding: 20px 30px; }
+      main { padding: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>💰 Patrimoine</h1>
+  </header>
+
+  <nav>
+    <button class="tab-btn active" data-screen="dashboard">Dashboard</button>
+    <button class="tab-btn" data-screen="pret">Prêt</button>
+    <button class="tab-btn" data-screen="biens">Biens</button>
+    <button class="tab-btn" data-screen="etf">ETF</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <div class="screen active" id="screen-dashboard">
+      <div id="dashboard-empty" class="empty-state">
+        <p style="font-size:16px;">Aucun prêt configuré</p>
+        <p>Commence par saisir ton prêt initial dans l'onglet <strong>Prêt</strong>.</p>
+        <button class="btn mt-16" onclick="showScreen('pret')">Configurer le prêt</button>
+      </div>
+
+      <div id="dashboard-content" style="display:none">
+        <div class="stats-grid">
+          <div class="stat">
+            <div class="stat-label">Capital total</div>
+            <div class="stat-value text-mono" id="stat-capital">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Taux moyen</div>
+            <div class="stat-value text-mono" id="stat-taux">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Intérêts / mois</div>
+            <div class="stat-value text-mono negative" id="stat-interets">—</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Cash-flow net / mois</div>
+            <div class="stat-value text-mono" id="stat-cashflow">—</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Répartition du capital</h2>
+          <div class="allocation-bar" id="allocation-bar"></div>
+          <div class="allocation-legend" id="allocation-legend"></div>
+        </div>
+
+        <div class="card">
+          <h2>Par poche</h2>
+          <div id="poches-detail"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRET -->
+    <div class="screen" id="screen-pret">
+      <div class="card">
+        <h2>Prêt global</h2>
+        <div class="form-row">
+          <label>Montant total du prêt (CHF)</label>
+          <input type="number" id="pret-montant" placeholder="1000000" step="1000" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Date de début</label>
+          <input type="date" id="pret-date-debut">
+        </div>
+        <button class="btn" onclick="savePret()">Enregistrer le prêt</button>
+        <div id="pret-summary"></div>
+      </div>
+
+      <div class="section-title">Tranches du prêt</div>
+      <div id="tranches-list"></div>
+      <button class="btn mt-16" onclick="openTrancheModal()">+ Ajouter une tranche</button>
+    </div>
+
+    <!-- BIENS -->
+    <div class="screen" id="screen-biens">
+      <div class="empty-state">
+        <p style="font-size:16px;">🏠 Module immobilier</p>
+        <p>Ajout des biens locatifs et calcul du cash-flow net.</p>
+        <p style="margin-top:14px;font-size:13px;color:#c0c0c5;">À venir dans la prochaine itération</p>
+      </div>
+    </div>
+
+    <!-- ETF -->
+    <div class="screen" id="screen-etf">
+      <div class="empty-state">
+        <p style="font-size:16px;">📈 Module bourse / ETF</p>
+        <p>Suivi des positions, achats échelonnés (DCA) et rendement net.</p>
+        <p style="margin-top:14px;font-size:13px;color:#c0c0c5;">À venir dans la prochaine itération</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal Tranche -->
+  <div class="modal-overlay" id="modal-tranche">
+    <div class="modal">
+      <h2 id="modal-tranche-title">Nouvelle tranche</h2>
+
+      <div class="form-row">
+        <label>Nom / description</label>
+        <input type="text" id="tranche-nom" placeholder="Ex: Tranche fixe 5 ans">
+      </div>
+
+      <div class="form-row">
+        <label>Montant (CHF)</label>
+        <input type="number" id="tranche-montant" step="1000" inputmode="decimal">
+      </div>
+
+      <div class="form-row">
+        <label>Type de taux</label>
+        <select id="tranche-type" onchange="onTrancheTypeChange()">
+          <option value="fixe">Fixe</option>
+          <option value="saron">SARON</option>
+          <option value="variable">Variable</option>
+        </select>
+      </div>
+
+      <div class="taux-fields active" id="fields-fixe">
+        <div class="form-row">
+          <label>Taux annuel (%)</label>
+          <input type="number" id="tranche-taux-fixe" step="0.01" placeholder="1.50" inputmode="decimal">
+        </div>
+        <div class="form-row-inline">
+          <div class="form-row">
+            <label>Début</label>
+            <input type="date" id="tranche-debut-fixe">
+          </div>
+          <div class="form-row">
+            <label>Échéance</label>
+            <input type="date" id="tranche-echeance-fixe">
+          </div>
+        </div>
+      </div>
+
+      <div class="taux-fields" id="fields-saron">
+        <div class="form-row">
+          <label>Valeur SARON actuelle (%)</label>
+          <input type="number" id="tranche-saron-valeur" step="0.01" placeholder="1.25" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Spread banque (%)</label>
+          <input type="number" id="tranche-saron-spread" step="0.01" placeholder="0.85" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Fréquence de refix (mois)</label>
+          <input type="number" id="tranche-saron-refix" value="3" inputmode="numeric">
+        </div>
+      </div>
+
+      <div class="taux-fields" id="fields-variable">
+        <div class="form-row">
+          <label>Taux actuel (%)</label>
+          <input type="number" id="tranche-taux-variable" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeTrancheModal()">Annuler</button>
+        <button class="btn btn-danger" id="btn-delete-tranche" onclick="deleteTranche()" style="display:none">Supprimer</button>
+        <button class="btn" onclick="saveTranche()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==== DATA MODEL ====
+    const STORAGE_KEY = 'patrimoine-data';
+    const DEFAULT_DATA = {
+      version: 1,
+      updatedAt: null,
+      pret: {
+        montantTotal: 0,
+        dateDebut: '',
+        tranches: []
+      },
+      biens: [],
+      etfs: []
+    };
+
+    let data = loadData();
+    let editingTrancheId = null;
+
+    function loadData() {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return structuredClone(DEFAULT_DATA);
+      try {
+        const parsed = JSON.parse(raw);
+        return { ...structuredClone(DEFAULT_DATA), ...parsed };
+      } catch (e) {
+        console.error('Load error', e);
+        return structuredClone(DEFAULT_DATA);
+      }
+    }
+
+    function saveData() {
+      data.updatedAt = new Date().toISOString();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function uid() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    }
+
+    // ==== FORMATTERS ====
+    const fmtCHF = n => new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', maximumFractionDigits: 0 }).format(n || 0);
+    const fmtCHF2 = n => new Intl.NumberFormat('fr-CH', { style: 'currency', currency: 'CHF', maximumFractionDigits: 2 }).format(n || 0);
+    const fmtPct = n => new Intl.NumberFormat('fr-CH', { style: 'percent', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format((n || 0) / 100);
+
+    function formatDate(iso) {
+      if (!iso) return '';
+      try { return new Date(iso).toLocaleDateString('fr-CH'); }
+      catch (e) { return iso; }
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+
+    function toast(msg) {
+      const el = document.createElement('div');
+      el.className = 'toast';
+      el.textContent = msg;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 2000);
+    }
+
+    // ==== CALCULS ====
+    function trancheInterestRate(t) {
+      if (t.typeTaux === 'fixe') return t.taux || 0;
+      if (t.typeTaux === 'saron') return (t.saronValeur || 0) + (t.saronSpread || 0);
+      if (t.typeTaux === 'variable') return t.taux || 0;
+      return 0;
+    }
+
+    function trancheInterestMonthly(t) {
+      return (t.montant || 0) * trancheInterestRate(t) / 100 / 12;
+    }
+
+    function totalTranchesMontant() {
+      return data.pret.tranches.reduce((s, t) => s + (t.montant || 0), 0);
+    }
+
+    function totalInterestMonthly() {
+      return data.pret.tranches.reduce((s, t) => s + trancheInterestMonthly(t), 0);
+    }
+
+    function tauxMoyenPondere() {
+      const total = totalTranchesMontant();
+      if (total === 0) return 0;
+      return data.pret.tranches.reduce((s, t) => s + (t.montant || 0) * trancheInterestRate(t), 0) / total;
+    }
+
+    function pocheImmoMontant() {
+      return data.biens.reduce((s, b) => s + (b.prixAchat || 0), 0);
+    }
+
+    function pocheEtfMontant() {
+      return data.etfs.reduce((s, e) => {
+        return s + (e.achats || []).reduce((ss, a) => ss + (a.quantite || 0) * (a.prix || 0), 0);
+      }, 0);
+    }
+
+    function pocheCashMontant() {
+      const total = data.pret.montantTotal || 0;
+      return Math.max(0, total - pocheImmoMontant() - pocheEtfMontant());
+    }
+
+    // ==== NAVIGATION ====
+    function showScreen(name) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('screen-' + name).classList.add('active');
+      document.querySelector('.tab-btn[data-screen="' + name + '"]').classList.add('active');
+      if (name === 'dashboard') renderDashboard();
+      if (name === 'pret') renderPret();
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => showScreen(btn.dataset.screen));
+    });
+
+    // ==== DASHBOARD ====
+    function renderDashboard() {
+      const hasPret = data.pret.montantTotal > 0;
+      document.getElementById('dashboard-empty').style.display = hasPret ? 'none' : 'block';
+      document.getElementById('dashboard-content').style.display = hasPret ? 'block' : 'none';
+      if (!hasPret) return;
+
+      const capital = data.pret.montantTotal;
+      const interetsMois = totalInterestMonthly();
+
+      document.getElementById('stat-capital').textContent = fmtCHF(capital);
+      document.getElementById('stat-taux').textContent = fmtPct(tauxMoyenPondere());
+      document.getElementById('stat-interets').textContent = '−' + fmtCHF(interetsMois);
+
+      // Cash-flow V1 = − intérêts (les revenus locatifs et dividendes viendront avec les modules dédiés)
+      const cashflow = -interetsMois;
+      const cfEl = document.getElementById('stat-cashflow');
+      cfEl.textContent = (cashflow >= 0 ? '+' : '−') + fmtCHF(Math.abs(cashflow));
+      cfEl.classList.remove('positive', 'negative');
+      cfEl.classList.add(cashflow >= 0 ? 'positive' : 'negative');
+
+      // Répartition
+      const immo = pocheImmoMontant();
+      const etf = pocheEtfMontant();
+      const cash = pocheCashMontant();
+      const segs = [
+        { label: 'Immo', montant: immo, cls: 'allocation-immo' },
+        { label: 'ETF', montant: etf, cls: 'allocation-etf' },
+        { label: 'Cash', montant: cash, cls: 'allocation-cash' }
+      ];
+
+      const bar = document.getElementById('allocation-bar');
+      bar.innerHTML = '';
+      segs.forEach(seg => {
+        if (seg.montant <= 0) return;
+        const pct = (seg.montant / capital) * 100;
+        const el = document.createElement('div');
+        el.className = 'allocation-segment ' + seg.cls;
+        el.style.width = pct + '%';
+        el.textContent = pct >= 8 ? pct.toFixed(0) + '%' : '';
+        bar.appendChild(el);
+      });
+
+      document.getElementById('allocation-legend').innerHTML = segs.map(seg => `
+        <div class="allocation-legend-item">
+          <div class="allocation-dot ${seg.cls}"></div>
+          <span>${seg.label} : ${fmtCHF(seg.montant)}</span>
+        </div>
+      `).join('');
+
+      // Détail par poche
+      document.getElementById('poches-detail').innerHTML = segs.map(seg => {
+        const pct = capital > 0 ? seg.montant / capital : 0;
+        const interetPoche = interetsMois * pct;
+        return `
+          <div class="poche-row">
+            <div class="poche-row-main">
+              <strong>${seg.label}</strong>
+              <span class="text-mono">${fmtCHF(seg.montant)}</span>
+            </div>
+            <div class="poche-row-sub">
+              <span>Coût intérêts / mois</span>
+              <span class="text-mono">−${fmtCHF2(interetPoche)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ==== PRET ====
+    function renderPret() {
+      document.getElementById('pret-montant').value = data.pret.montantTotal || '';
+      document.getElementById('pret-date-debut').value = data.pret.dateDebut || '';
+
+      const summary = document.getElementById('pret-summary');
+      const total = data.pret.montantTotal;
+      const sum = totalTranchesMontant();
+      summary.className = 'pret-summary';
+      if (total > 0) {
+        const diff = total - sum;
+        if (Math.abs(diff) < 1) {
+          summary.classList.add('ok');
+          summary.textContent = '✓ Tranches équilibrées : ' + fmtCHF(sum) + ' / ' + fmtCHF(total);
+        } else if (diff > 0) {
+          summary.classList.add('warn');
+          summary.textContent = '⚠ Reste ' + fmtCHF(diff) + ' à répartir en tranches (' + fmtCHF(sum) + ' / ' + fmtCHF(total) + ')';
+        } else {
+          summary.classList.add('err');
+          summary.textContent = '⚠ Excédent de ' + fmtCHF(-diff) + ' dans les tranches (' + fmtCHF(sum) + ' / ' + fmtCHF(total) + ')';
+        }
+      } else {
+        summary.textContent = '';
+      }
+
+      const list = document.getElementById('tranches-list');
+      if (data.pret.tranches.length === 0) {
+        list.innerHTML = '<div class="empty-state" style="padding:20px;">Aucune tranche</div>';
+        return;
+      }
+
+      list.innerHTML = data.pret.tranches.map(t => {
+        const type = t.typeTaux;
+        const taux = trancheInterestRate(t);
+        const interetMois = trancheInterestMonthly(t);
+        let details = '';
+        if (type === 'fixe') {
+          details = fmtPct(taux) + ' · Échéance : ' + (formatDate(t.echeance) || '—');
+        } else if (type === 'saron') {
+          details = 'SARON ' + fmtPct(t.saronValeur || 0) + ' + spread ' + fmtPct(t.saronSpread || 0) + ' = ' + fmtPct(taux);
+        } else {
+          details = fmtPct(taux) + ' · variable';
+        }
+        return `
+          <div class="tranche ${type}" onclick="openTrancheModal('${t.id}')">
+            <div class="tranche-header">
+              <span class="tranche-name">${escapeHtml(t.nom || 'Sans nom')}</span>
+              <span class="tranche-type ${type}">${type}</span>
+            </div>
+            <div class="tranche-amounts">
+              <span class="text-mono">${fmtCHF(t.montant)}</span>
+              <span class="text-mono">−${fmtCHF2(interetMois)} / mois</span>
+            </div>
+            <div class="tranche-details">${details}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function savePret() {
+      const montant = parseFloat(document.getElementById('pret-montant').value) || 0;
+      const dateDebut = document.getElementById('pret-date-debut').value;
+      data.pret.montantTotal = montant;
+      data.pret.dateDebut = dateDebut;
+      saveData();
+      toast('Prêt enregistré');
+      renderPret();
+    }
+
+    // ==== TRANCHE MODAL ====
+    function openTrancheModal(id) {
+      editingTrancheId = id || null;
+      const modal = document.getElementById('modal-tranche');
+      const title = document.getElementById('modal-tranche-title');
+      const deleteBtn = document.getElementById('btn-delete-tranche');
+
+      // Reset
+      document.getElementById('tranche-nom').value = '';
+      document.getElementById('tranche-montant').value = '';
+      document.getElementById('tranche-type').value = 'fixe';
+      document.getElementById('tranche-taux-fixe').value = '';
+      document.getElementById('tranche-debut-fixe').value = '';
+      document.getElementById('tranche-echeance-fixe').value = '';
+      document.getElementById('tranche-saron-valeur').value = '';
+      document.getElementById('tranche-saron-spread').value = '';
+      document.getElementById('tranche-saron-refix').value = '3';
+      document.getElementById('tranche-taux-variable').value = '';
+
+      if (id) {
+        const t = data.pret.tranches.find(x => x.id === id);
+        if (t) {
+          title.textContent = 'Modifier la tranche';
+          deleteBtn.style.display = 'inline-block';
+          document.getElementById('tranche-nom').value = t.nom || '';
+          document.getElementById('tranche-montant').value = t.montant || '';
+          document.getElementById('tranche-type').value = t.typeTaux;
+          if (t.typeTaux === 'fixe') {
+            document.getElementById('tranche-taux-fixe').value = t.taux || '';
+            document.getElementById('tranche-debut-fixe').value = t.debut || '';
+            document.getElementById('tranche-echeance-fixe').value = t.echeance || '';
+          } else if (t.typeTaux === 'saron') {
+            document.getElementById('tranche-saron-valeur').value = t.saronValeur || '';
+            document.getElementById('tranche-saron-spread').value = t.saronSpread || '';
+            document.getElementById('tranche-saron-refix').value = t.saronRefix || 3;
+          } else {
+            document.getElementById('tranche-taux-variable').value = t.taux || '';
+          }
+        }
+      } else {
+        title.textContent = 'Nouvelle tranche';
+        deleteBtn.style.display = 'none';
+      }
+
+      onTrancheTypeChange();
+      modal.classList.add('active');
+    }
+
+    function closeTrancheModal() {
+      document.getElementById('modal-tranche').classList.remove('active');
+      editingTrancheId = null;
+    }
+
+    function onTrancheTypeChange() {
+      const type = document.getElementById('tranche-type').value;
+      document.querySelectorAll('.taux-fields').forEach(f => f.classList.remove('active'));
+      document.getElementById('fields-' + type).classList.add('active');
+    }
+
+    function saveTranche() {
+      const type = document.getElementById('tranche-type').value;
+      const nom = document.getElementById('tranche-nom').value.trim();
+      const montant = parseFloat(document.getElementById('tranche-montant').value) || 0;
+
+      if (!nom || montant <= 0) {
+        alert('Nom et montant requis');
+        return;
+      }
+
+      const tranche = { id: editingTrancheId || uid(), nom, montant, typeTaux: type };
+
+      if (type === 'fixe') {
+        tranche.taux = parseFloat(document.getElementById('tranche-taux-fixe').value) || 0;
+        tranche.debut = document.getElementById('tranche-debut-fixe').value;
+        tranche.echeance = document.getElementById('tranche-echeance-fixe').value;
+      } else if (type === 'saron') {
+        tranche.saronValeur = parseFloat(document.getElementById('tranche-saron-valeur').value) || 0;
+        tranche.saronSpread = parseFloat(document.getElementById('tranche-saron-spread').value) || 0;
+        tranche.saronRefix = parseInt(document.getElementById('tranche-saron-refix').value) || 3;
+      } else {
+        tranche.taux = parseFloat(document.getElementById('tranche-taux-variable').value) || 0;
+      }
+
+      if (editingTrancheId) {
+        const idx = data.pret.tranches.findIndex(x => x.id === editingTrancheId);
+        if (idx >= 0) data.pret.tranches[idx] = tranche;
+      } else {
+        data.pret.tranches.push(tranche);
+      }
+
+      saveData();
+      closeTrancheModal();
+      renderPret();
+      toast('Tranche enregistrée');
+    }
+
+    function deleteTranche() {
+      if (!editingTrancheId) return;
+      if (!confirm('Supprimer cette tranche ?')) return;
+      data.pret.tranches = data.pret.tranches.filter(t => t.id !== editingTrancheId);
+      saveData();
+      closeTrancheModal();
+      renderPret();
+      toast('Tranche supprimée');
+    }
+
+    // ==== INIT ====
+    renderDashboard();
+
+    // ==== SERVICE WORKER ====
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW register failed', e));
+    }
+  </script>
+</body>
+</html>
