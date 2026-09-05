@@ -729,6 +729,76 @@
       font-size: 13px;
     }
 
+    /* Bien cards (immo) — hérite de etf-card avec accent bleu */
+    .bien-card {
+      background: white;
+      border-radius: var(--radius-md);
+      padding: 32px;
+      margin-bottom: 22px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-soft);
+      border-top: 4px solid var(--immo);
+    }
+    .bien-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      gap: 18px;
+    }
+    .bien-header h3 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+    .bien-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .cashflow-breakdown {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+    }
+    .cf-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 8px 0;
+      font-size: 16px;
+    }
+    .cf-row.positive-val span:last-child { color: var(--success-dark); font-weight: 600; }
+    .cf-row.negative-val span:last-child { color: var(--danger-dark); font-weight: 600; }
+    .cf-row.net {
+      border-top: 1.5px solid rgba(0,0,0,0.08);
+      margin-top: 8px;
+      padding-top: 14px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .cf-row.net.positive { color: var(--success-dark); }
+    .cf-row.net.negative { color: var(--danger-dark); }
+    .charges-detail {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px 20px;
+      padding: 18px 22px;
+      background: var(--bg);
+      border-radius: var(--radius);
+      font-size: 15px;
+    }
+    .charges-detail-item {
+      display: flex;
+      justify-content: space-between;
+      color: var(--text-muted);
+    }
+    .charges-detail-item span:last-child {
+      color: var(--text);
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
     @media (max-width: 768px) {
       header { padding: 16px 20px; }
       main { padding: 20px; }
@@ -834,11 +904,8 @@
 
     <!-- BIENS -->
     <div class="screen" id="screen-biens">
-      <div class="empty-state">
-        <p style="font-size:16px;">🏠 Module immobilier</p>
-        <p>Ajout des biens locatifs et calcul du cash-flow net.</p>
-        <p style="margin-top:14px;font-size:13px;color:#c0c0c5;">À venir dans la prochaine itération</p>
-      </div>
+      <div id="biens-list"></div>
+      <button class="btn mt-16" onclick="openBienModal()">+ Nouveau bien</button>
     </div>
 
     <!-- BOURSE / ETF -->
@@ -988,6 +1055,86 @@
         <button class="btn btn-secondary" onclick="closeMouvementModal()">Annuler</button>
         <button class="btn btn-danger" id="btn-delete-mouvement" onclick="deleteMouvement()" style="display:none">Supprimer</button>
         <button class="btn" onclick="saveMouvement()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Bien -->
+  <div class="modal-overlay" id="modal-bien">
+    <div class="modal">
+      <h2 id="modal-bien-title">Nouveau bien</h2>
+
+      <div class="form-row">
+        <label>Nom du bien</label>
+        <input type="text" id="bien-nom" placeholder="Ex: Appartement Sion">
+      </div>
+
+      <div class="form-row">
+        <label>Adresse (optionnel)</label>
+        <input type="text" id="bien-adresse" placeholder="Ex: Rue du Rhône 12, Sion">
+      </div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Date d'achat</label>
+          <input type="date" id="bien-date-achat">
+        </div>
+        <div class="form-row">
+          <label>Prix d'achat (CHF)</label>
+          <input type="number" id="bien-prix-achat" step="1000" inputmode="decimal" placeholder="500000">
+        </div>
+      </div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Date de la valeur actuelle</label>
+          <input type="date" id="bien-date-valeur">
+        </div>
+        <div class="form-row">
+          <label>Valeur actuelle (CHF)</label>
+          <input type="number" id="bien-valeur" step="1000" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Loyer mensuel encaissé (CHF)</label>
+        <input type="number" id="bien-loyer" step="10" inputmode="decimal" placeholder="2500">
+      </div>
+
+      <div class="section-title" style="margin-top:24px;">Charges mensuelles</div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Entretien</label>
+          <input type="number" id="bien-ch-entretien" step="10" inputmode="decimal" placeholder="0">
+        </div>
+        <div class="form-row">
+          <label>Charges PPE</label>
+          <input type="number" id="bien-ch-ppe" step="10" inputmode="decimal" placeholder="0">
+        </div>
+      </div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Gérance</label>
+          <input type="number" id="bien-ch-gerance" step="10" inputmode="decimal" placeholder="0">
+        </div>
+        <div class="form-row">
+          <label>Assurance</label>
+          <input type="number" id="bien-ch-assurance" step="10" inputmode="decimal" placeholder="0">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Provision vacance locative</label>
+        <input type="number" id="bien-ch-vacance" step="10" inputmode="decimal" placeholder="0">
+        <div class="settings-help">Réserve mensuelle pour couvrir les mois sans loyer (typiquement 5% du loyer)</div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeBienModal()">Annuler</button>
+        <button class="btn btn-danger" id="btn-delete-bien" onclick="deleteBien()" style="display:none">Supprimer</button>
+        <button class="btn" onclick="saveBien()">Enregistrer</button>
       </div>
     </div>
   </div>
@@ -1261,6 +1408,7 @@
       document.querySelector('.tab-btn[data-screen="' + name + '"]').classList.add('active');
       if (name === 'dashboard') renderDashboard();
       if (name === 'pret') renderPret();
+      if (name === 'biens') renderBiens();
       if (name === 'etf') renderEtfs();
     }
 
@@ -1288,8 +1436,11 @@
         ? pocheEtfMontant() * rendementBourse / 12
         : 0;
 
-      // Résultat net = gains poches - intérêts (loyers immo viendront s'ajouter plus tard)
-      const cashflow = gainBourseMensuel - interetsMois;
+      // Cash-flow immo mensuel brut (loyers − charges) — les intérêts sont comptés au niveau global
+      const cfImmoBrut = cashflowImmoMensuel();
+
+      // Résultat net = gains toutes poches − intérêts totaux
+      const cashflow = gainBourseMensuel + cfImmoBrut - interetsMois;
       const cfEl = document.getElementById('stat-cashflow');
       cfEl.textContent = (cashflow >= 0 ? '+' : '−') + fmtCHF(Math.abs(cashflow));
       cfEl.classList.remove('positive', 'negative');
@@ -1300,7 +1451,7 @@
       const etf = pocheEtfMontant();
       const cash = pocheCashMontant();
       const segs = [
-        { label: 'Immo', montant: immo, cls: 'allocation-immo', gains: 0, showGain: false },
+        { label: 'Immo', montant: immo, cls: 'allocation-immo', gains: cfImmoBrut, showGain: immo > 0 && cfImmoBrut !== 0 },
         { label: 'Bourse', montant: etf, cls: 'allocation-etf', gains: gainBourseMensuel, showGain: rendementBourse != null && etf > 0 },
         { label: 'Cash', montant: cash, cls: 'allocation-cash', gains: 0, showGain: false }
       ];
@@ -2253,6 +2404,259 @@
         });
       }
       return result;
+    }
+
+    // ==== BIENS (IMMO) ====
+    let editingBienId = null;
+
+    function computeBienStats(bien) {
+      const capital = data.pret.montantTotal || 0;
+      const interetsTotal = totalInterestMonthly();
+      const prixAchat = bien.prixAchat || 0;
+      const valeurActuelle = bien.valeurActuelle || prixAchat;
+      const loyerMensuel = bien.loyerMensuel || 0;
+      const chargesTotal = Object.values(bien.charges || {}).reduce((s, c) => s + (c || 0), 0);
+
+      // Coût intérêts alloué à ce bien (proportionnel à sa part du capital)
+      const partCapital = capital > 0 ? prixAchat / capital : 0;
+      const interetsAlloues = interetsTotal * partCapital;
+
+      const cashFlowMensuelBrut = loyerMensuel - chargesTotal;
+      const cashFlowMensuelNet = cashFlowMensuelBrut - interetsAlloues;
+      const cashFlowAnnuelNet = cashFlowMensuelNet * 12;
+
+      const plusValueLatente = valeurActuelle - prixAchat;
+      const plusValuePct = prixAchat > 0 ? (plusValueLatente / prixAchat) * 100 : 0;
+
+      const rendementBrut = prixAchat > 0 ? (loyerMensuel * 12 / prixAchat) * 100 : 0;
+      const rendementNet = prixAchat > 0 ? (cashFlowAnnuelNet / prixAchat) * 100 : 0;
+
+      return {
+        prixAchat, valeurActuelle, loyerMensuel, chargesTotal,
+        interetsAlloues, partCapital,
+        cashFlowMensuelBrut, cashFlowMensuelNet, cashFlowAnnuelNet,
+        plusValueLatente, plusValuePct,
+        rendementBrut, rendementNet
+      };
+    }
+
+    // Cash-flow immo mensuel agrégé (loyers − charges seulement, les intérêts sont déjà comptés au global)
+    function cashflowImmoMensuel() {
+      return data.biens.reduce((s, b) => {
+        const loyer = b.loyerMensuel || 0;
+        const ch = Object.values(b.charges || {}).reduce((a, c) => a + (c || 0), 0);
+        return s + loyer - ch;
+      }, 0);
+    }
+
+    function renderBiens() {
+      const list = document.getElementById('biens-list');
+      if (data.biens.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p style="font-size:18px;">🏠 Aucun bien pour le moment</p><p>Ajoute ton premier bien locatif pour commencer à suivre son cash-flow et sa rentabilité.</p></div>';
+        return;
+      }
+
+      const tauxPret = tauxMoyenPondere();
+
+      list.innerHTML = data.biens.map(bien => {
+        const s = computeBienStats(bien);
+        const gainCls = s.plusValueLatente >= 0 ? 'positive' : 'negative';
+        const netCls = s.cashFlowMensuelNet >= 0 ? 'positive' : 'negative';
+        const rendementNetCls = s.rendementNet >= 0 ? 'positive' : 'negative';
+
+        // Spread rendement net vs coût du prêt
+        let spreadRow = '';
+        if (data.pret.tranches.length > 0 && s.rendementNet != null) {
+          const spread = s.rendementNet - tauxPret;
+          const sCls = spread >= 0 ? 'positive' : 'negative';
+          const verb = spread >= 0 ? 'bat le prêt de' : 'sous le prêt de';
+          spreadRow = `
+            <div class="bilan-row bilan-spread ${sCls}">
+              <span>${verb} <strong>${spread >= 0 ? '+' : ''}${fmtPct(spread)}</strong></span>
+              <span>Coût prêt : ${fmtPct(tauxPret)}</span>
+            </div>
+          `;
+        }
+
+        // Détail des charges
+        const chargeLabels = {
+          entretien: 'Entretien',
+          ppe: 'Charges PPE',
+          gerance: 'Gérance',
+          assurance: 'Assurance',
+          vacance: 'Prov. vacance'
+        };
+        const chargesDetail = Object.entries(bien.charges || {})
+          .filter(([k, v]) => (v || 0) > 0)
+          .map(([k, v]) => `<div class="charges-detail-item"><span>${chargeLabels[k] || k}</span><span>${fmtCHF2(v)}</span></div>`)
+          .join('');
+
+        return `
+          <div class="bien-card">
+            <div class="bien-header">
+              <div>
+                <h3>🏠 ${escapeHtml(bien.nom || 'Sans nom')}</h3>
+                <div class="bien-subtitle">${bien.adresse ? escapeHtml(bien.adresse) + ' · ' : ''}Acheté le ${formatDate(bien.dateAchat) || '—'}</div>
+              </div>
+              <div class="etf-actions">
+                <button class="btn-icon" onclick="openBienModal('${bien.id}')">Éditer</button>
+              </div>
+            </div>
+
+            <div class="etf-bilan ${gainCls}">
+              <div class="bilan-title">💰 Bilan</div>
+              <div class="bilan-row">
+                <span>Prix d'achat</span>
+                <span class="text-mono">${fmtCHF(s.prixAchat)}</span>
+              </div>
+              <div class="bilan-row">
+                <span>Valeur aujourd'hui</span>
+                <span class="text-mono">${fmtCHF(s.valeurActuelle)}</span>
+              </div>
+              <div class="bilan-row bilan-gain ${gainCls}">
+                <span>Plus-value</span>
+                <span class="text-mono">${s.plusValueLatente >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.plusValueLatente))} (${s.plusValueLatente >= 0 ? '+' : '−'}${fmtPct(Math.abs(s.plusValuePct))})</span>
+              </div>
+              <div class="bilan-row bilan-rendement ${rendementNetCls}">
+                <span>Rendement locatif net</span>
+                <span class="text-mono">${s.rendementNet >= 0 ? '+' : ''}${fmtPct(s.rendementNet)} / an</span>
+              </div>
+              ${spreadRow}
+            </div>
+
+            <div class="etf-subsection">
+              <div class="etf-subsection-header">
+                <span class="etf-subsection-title">💵 Cash-flow mensuel</span>
+              </div>
+              <div class="cashflow-breakdown">
+                <div class="cf-row positive-val">
+                  <span>Loyer encaissé</span>
+                  <span class="text-mono">+${fmtCHF2(s.loyerMensuel)}</span>
+                </div>
+                <div class="cf-row negative-val">
+                  <span>Charges (entretien, PPE, gérance, etc.)</span>
+                  <span class="text-mono">−${fmtCHF2(s.chargesTotal)}</span>
+                </div>
+                <div class="cf-row negative-val">
+                  <span>Intérêts alloués (${(s.partCapital * 100).toFixed(1)}% du prêt)</span>
+                  <span class="text-mono">−${fmtCHF2(s.interetsAlloues)}</span>
+                </div>
+                <div class="cf-row net ${netCls}">
+                  <span>Net mensuel</span>
+                  <span class="text-mono">${s.cashFlowMensuelNet >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.cashFlowMensuelNet))}</span>
+                </div>
+              </div>
+              <div class="settings-help" style="margin-top:10px;">
+                Rendement brut (loyer / prix d'achat) : <strong>${fmtPct(s.rendementBrut)}</strong> · Cash-flow annuel net : <strong>${s.cashFlowAnnuelNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(s.cashFlowAnnuelNet))}</strong>
+              </div>
+            </div>
+
+            ${chargesDetail ? `
+              <div class="etf-subsection">
+                <div class="etf-subsection-header">
+                  <span class="etf-subsection-title">⚙️ Détail des charges</span>
+                </div>
+                <div class="charges-detail">${chargesDetail}</div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openBienModal(id) {
+      editingBienId = id || null;
+      const modal = document.getElementById('modal-bien');
+      const today = new Date().toISOString().slice(0, 10);
+
+      // Reset
+      document.getElementById('bien-nom').value = '';
+      document.getElementById('bien-adresse').value = '';
+      document.getElementById('bien-date-achat').value = today;
+      document.getElementById('bien-prix-achat').value = '';
+      document.getElementById('bien-date-valeur').value = today;
+      document.getElementById('bien-valeur').value = '';
+      document.getElementById('bien-loyer').value = '';
+      document.getElementById('bien-ch-entretien').value = '';
+      document.getElementById('bien-ch-ppe').value = '';
+      document.getElementById('bien-ch-gerance').value = '';
+      document.getElementById('bien-ch-assurance').value = '';
+      document.getElementById('bien-ch-vacance').value = '';
+      document.getElementById('btn-delete-bien').style.display = 'none';
+      document.getElementById('modal-bien-title').textContent = 'Nouveau bien';
+
+      if (id) {
+        const b = data.biens.find(x => x.id === id);
+        if (b) {
+          document.getElementById('modal-bien-title').textContent = 'Modifier le bien';
+          document.getElementById('btn-delete-bien').style.display = 'inline-block';
+          document.getElementById('bien-nom').value = b.nom || '';
+          document.getElementById('bien-adresse').value = b.adresse || '';
+          document.getElementById('bien-date-achat').value = b.dateAchat || '';
+          document.getElementById('bien-prix-achat').value = b.prixAchat || '';
+          document.getElementById('bien-date-valeur').value = b.dateValeur || '';
+          document.getElementById('bien-valeur').value = b.valeurActuelle || '';
+          document.getElementById('bien-loyer').value = b.loyerMensuel || '';
+          const c = b.charges || {};
+          document.getElementById('bien-ch-entretien').value = c.entretien || '';
+          document.getElementById('bien-ch-ppe').value = c.ppe || '';
+          document.getElementById('bien-ch-gerance').value = c.gerance || '';
+          document.getElementById('bien-ch-assurance').value = c.assurance || '';
+          document.getElementById('bien-ch-vacance').value = c.vacance || '';
+        }
+      }
+      modal.classList.add('active');
+    }
+
+    function closeBienModal() {
+      document.getElementById('modal-bien').classList.remove('active');
+      editingBienId = null;
+    }
+
+    function saveBien() {
+      const nom = document.getElementById('bien-nom').value.trim();
+      const prixAchat = parseFloat(document.getElementById('bien-prix-achat').value) || 0;
+      if (!nom || prixAchat <= 0) { alert('Nom et prix d\'achat requis'); return; }
+
+      const valeurSaisie = parseFloat(document.getElementById('bien-valeur').value);
+      const bien = {
+        id: editingBienId || uid(),
+        nom,
+        adresse: document.getElementById('bien-adresse').value.trim(),
+        dateAchat: document.getElementById('bien-date-achat').value,
+        prixAchat,
+        valeurActuelle: isFinite(valeurSaisie) && valeurSaisie > 0 ? valeurSaisie : prixAchat,
+        dateValeur: document.getElementById('bien-date-valeur').value,
+        loyerMensuel: parseFloat(document.getElementById('bien-loyer').value) || 0,
+        charges: {
+          entretien: parseFloat(document.getElementById('bien-ch-entretien').value) || 0,
+          ppe: parseFloat(document.getElementById('bien-ch-ppe').value) || 0,
+          gerance: parseFloat(document.getElementById('bien-ch-gerance').value) || 0,
+          assurance: parseFloat(document.getElementById('bien-ch-assurance').value) || 0,
+          vacance: parseFloat(document.getElementById('bien-ch-vacance').value) || 0
+        }
+      };
+
+      if (editingBienId) {
+        const idx = data.biens.findIndex(x => x.id === editingBienId);
+        if (idx >= 0) data.biens[idx] = bien;
+      } else {
+        data.biens.push(bien);
+      }
+      saveData();
+      closeBienModal();
+      renderBiens();
+      toast('Bien enregistré');
+    }
+
+    function deleteBien() {
+      if (!editingBienId) return;
+      if (!confirm('Supprimer ce bien ?')) return;
+      data.biens = data.biens.filter(b => b.id !== editingBienId);
+      saveData();
+      closeBienModal();
+      renderBiens();
+      toast('Bien supprimé');
     }
 
     // ==== INIT ====
