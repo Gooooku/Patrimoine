@@ -10,7 +10,6 @@
   <title>Patrimoine</title>
   <style>
     :root {
-      /* Palette pastel moderne */
       --bg: #f7f6fc;
       --card: #ffffff;
       --border: #eceaf5;
@@ -65,7 +64,7 @@
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
       background: var(--bg);
       color: var(--text);
-      font-size: 15px;
+      font-size: 17px;
       line-height: 1.55;
       -webkit-font-smoothing: antialiased;
       padding-bottom: 60px;
@@ -74,7 +73,7 @@
     header {
       background: linear-gradient(135deg, #5b52c9 0%, #7c6df2 60%, #9089f5 100%);
       color: white;
-      padding: 20px 32px;
+      padding: 24px 36px;
       position: sticky;
       top: 0;
       z-index: 100;
@@ -84,7 +83,7 @@
       align-items: center;
     }
     header h1 {
-      font-size: 22px;
+      font-size: 26px;
       font-weight: 700;
       letter-spacing: -0.01em;
     }
@@ -93,9 +92,9 @@
       border: none;
       color: white;
       cursor: pointer;
-      font-size: 18px;
-      padding: 8px 14px;
-      border-radius: 10px;
+      font-size: 22px;
+      padding: 10px 16px;
+      border-radius: 12px;
       line-height: 1;
       transition: background 0.2s;
     }
@@ -103,24 +102,24 @@
 
     nav {
       background: white;
-      padding: 12px 20px;
+      padding: 14px 24px;
       border-bottom: 1px solid var(--border);
       position: sticky;
-      top: 68px;
+      top: 78px;
       z-index: 99;
       display: flex;
-      gap: 6px;
+      gap: 8px;
       justify-content: center;
     }
     nav button {
-      padding: 10px 22px;
+      padding: 12px 26px;
       background: transparent;
       border: none;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 500;
       color: var(--text-muted);
       cursor: pointer;
-      border-radius: 10px;
+      border-radius: 12px;
       transition: all 0.2s;
       font-family: inherit;
     }
@@ -135,7 +134,7 @@
     }
 
     main {
-      padding: 32px;
+      padding: 36px;
       max-width: 1240px;
       margin: 0 auto;
     }
@@ -143,41 +142,41 @@
     .card {
       background: var(--card);
       border-radius: var(--radius-md);
-      padding: 24px;
-      margin-bottom: 20px;
+      padding: 28px;
+      margin-bottom: 22px;
       box-shadow: var(--shadow);
       border: 1px solid var(--border-soft);
     }
     .card h2 {
-      font-size: 15px;
+      font-size: 18px;
       font-weight: 600;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
       letter-spacing: -0.005em;
     }
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      margin-bottom: 22px;
     }
     .stat {
       background: var(--card);
-      padding: 20px 22px;
+      padding: 24px 26px;
       border-radius: var(--radius-md);
       box-shadow: var(--shadow);
       border: 1px solid var(--border-soft);
     }
     .stat-label {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
       font-weight: 600;
     }
     .stat-value {
-      font-size: 26px;
+      font-size: 32px;
       font-weight: 700;
       letter-spacing: -0.02em;
     }
@@ -186,10 +185,10 @@
 
     .allocation-bar {
       display: flex;
-      height: 40px;
+      height: 44px;
       border-radius: 12px;
       overflow: hidden;
-      margin: 14px 0;
+      margin: 16px 0;
       background: #f0eef7;
     }
     .allocation-segment {
@@ -197,7 +196,7 @@
       align-items: center;
       justify-content: center;
       color: white;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
       min-width: 30px;
     }
@@ -208,28 +207,28 @@
     .allocation-legend {
       display: flex;
       flex-wrap: wrap;
-      gap: 20px;
-      font-size: 14px;
+      gap: 22px;
+      font-size: 15px;
     }
     .allocation-legend-item {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
     .allocation-dot {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border-radius: 4px;
     }
 
     .btn {
       display: inline-block;
-      padding: 11px 22px;
+      padding: 13px 26px;
       background: var(--primary);
       color: white;
       border: none;
       border-radius: 10px;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 600;
       cursor: pointer;
       font-family: inherit;
@@ -243,20 +242,20 @@
     .btn-danger { background: var(--danger-soft); color: var(--danger-dark); }
     .btn-danger:hover { background: var(--danger-border); }
 
-    .form-row { margin-bottom: 16px; }
+    .form-row { margin-bottom: 18px; }
     .form-row label {
       display: block;
-      font-size: 13px;
+      font-size: 15px;
       color: var(--text-muted);
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       font-weight: 500;
     }
     .form-row input, .form-row select {
       width: 100%;
-      padding: 11px 14px;
+      padding: 13px 16px;
       border: 1.5px solid var(--border);
       border-radius: 10px;
-      font-size: 15px;
+      font-size: 17px;
       background: white;
       color: var(--text);
       font-family: inherit;
@@ -268,15 +267,15 @@
       border-color: var(--primary);
       box-shadow: 0 0 0 3px var(--primary-soft);
     }
-    .form-row-inline { display: flex; gap: 14px; }
+    .form-row-inline { display: flex; gap: 16px; }
     .form-row-inline > .form-row { flex: 1; }
 
     /* Tranches (prêt) */
     .tranche {
       background: white;
       border-radius: var(--radius-md);
-      padding: 18px 20px;
-      margin-bottom: 12px;
+      padding: 20px 22px;
+      margin-bottom: 14px;
       border: 1px solid var(--border-soft);
       border-left: 4px solid var(--primary);
       cursor: pointer;
@@ -290,14 +289,14 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
-    .tranche-name { font-weight: 600; font-size: 15px; }
+    .tranche-name { font-weight: 600; font-size: 17px; }
     .tranche-type {
-      font-size: 10px;
+      font-size: 11px;
       background: var(--primary-soft);
       color: var(--primary-dark);
-      padding: 4px 10px;
+      padding: 5px 12px;
       border-radius: 20px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
@@ -308,13 +307,13 @@
     .tranche-amounts {
       display: flex;
       justify-content: space-between;
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 600;
     }
     .tranche-details {
-      font-size: 13px;
+      font-size: 15px;
       color: var(--text-muted);
-      margin-top: 4px;
+      margin-top: 6px;
     }
 
     /* Modal */
@@ -334,32 +333,33 @@
     .modal {
       background: white;
       border-radius: var(--radius-lg);
-      padding: 28px;
-      max-width: 540px;
+      padding: 32px;
+      max-width: 580px;
       width: 100%;
       max-height: 90vh;
       overflow-y: auto;
       box-shadow: var(--shadow-lg);
     }
     .modal h2 {
-      margin-bottom: 20px;
-      font-size: 20px;
+      margin-bottom: 24px;
+      font-size: 24px;
       font-weight: 700;
       letter-spacing: -0.01em;
     }
     .modal-actions {
       display: flex;
-      gap: 10px;
-      margin-top: 24px;
+      gap: 12px;
+      margin-top: 28px;
     }
     .modal-actions button { flex: 1; }
 
     .empty-state {
       text-align: center;
-      padding: 48px 24px;
+      padding: 56px 24px;
       color: var(--text-muted);
+      font-size: 16px;
     }
-    .empty-state p { margin: 8px 0; }
+    .empty-state p { margin: 10px 0; }
 
     .text-mono { font-variant-numeric: tabular-nums; }
     .mt-16 { margin-top: 16px; }
@@ -370,17 +370,17 @@
     .taux-fields.active { display: block; }
 
     .section-title {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      margin: 24px 0 12px;
+      margin: 28px 0 14px;
       padding: 0 4px;
       font-weight: 700;
     }
 
     .poche-row {
-      padding: 14px 0;
+      padding: 16px 0;
       border-bottom: 1px solid var(--border-soft);
     }
     .poche-row:last-child { border-bottom: none; }
@@ -388,31 +388,31 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 15px;
+      font-size: 17px;
     }
     .poche-row-main strong { font-weight: 600; }
     .poche-row-sub {
-      font-size: 13px;
+      font-size: 15px;
       color: var(--text-muted);
-      margin-top: 5px;
+      margin-top: 6px;
       display: flex;
       justify-content: space-between;
     }
     .poche-row-net {
       font-weight: 700;
-      padding-top: 8px;
-      margin-top: 8px;
+      padding-top: 10px;
+      margin-top: 10px;
       border-top: 1px solid var(--border-soft);
-      font-size: 15px;
+      font-size: 17px;
     }
     .poche-row-net.positive { color: var(--success-dark); }
     .poche-row-net.negative { color: var(--danger-dark); }
 
     .pret-summary {
-      margin-top: 16px;
-      padding: 12px 16px;
+      margin-top: 18px;
+      padding: 14px 18px;
       border-radius: 10px;
-      font-size: 14px;
+      font-size: 15px;
       font-weight: 500;
     }
     .pret-summary.ok { background: var(--success-soft); color: var(--success-dark); }
@@ -421,16 +421,16 @@
 
     .toast {
       position: fixed;
-      bottom: 32px;
+      bottom: 36px;
       left: 50%;
       transform: translateX(-50%);
       background: var(--text);
       color: white;
-      padding: 12px 22px;
+      padding: 14px 26px;
       border-radius: 12px;
       z-index: 2000;
       box-shadow: var(--shadow-lg);
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 500;
     }
 
@@ -438,8 +438,8 @@
     .etf-card {
       background: white;
       border-radius: var(--radius-md);
-      padding: 28px;
-      margin-bottom: 20px;
+      padding: 32px;
+      margin-bottom: 22px;
       box-shadow: var(--shadow);
       border: 1px solid var(--border-soft);
     }
@@ -447,31 +447,31 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: 20px;
-      gap: 16px;
+      margin-bottom: 24px;
+      gap: 18px;
     }
     .etf-title h3 {
-      font-size: 20px;
+      font-size: 24px;
       font-weight: 700;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
       letter-spacing: -0.01em;
     }
     .etf-title .isin {
-      font-size: 12px;
+      font-size: 14px;
       color: var(--text-muted);
       font-family: 'SF Mono', ui-monospace, monospace;
       letter-spacing: 0.02em;
     }
     .etf-actions {
       display: flex;
-      gap: 8px;
+      gap: 10px;
     }
     .btn-icon {
       background: white;
       border: 1.5px solid var(--border);
       border-radius: 10px;
-      padding: 8px 14px;
-      font-size: 13px;
+      padding: 10px 16px;
+      font-size: 15px;
       cursor: pointer;
       color: var(--text);
       font-family: inherit;
@@ -488,31 +488,31 @@
     .btn-icon[disabled] { opacity: 0.4; cursor: not-allowed; }
 
     .updated-badge {
-      font-size: 12px;
+      font-size: 14px;
       color: var(--text-subtle);
-      margin-top: 6px;
+      margin-top: 8px;
     }
 
     .etf-stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 14px;
-      padding: 18px 20px;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      padding: 22px 24px;
       background: var(--bg);
       border-radius: var(--radius);
-      margin-bottom: 20px;
+      margin-bottom: 22px;
     }
     .etf-stat-label {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
       font-weight: 600;
     }
     .etf-stat-value {
-      font-size: 17px;
+      font-size: 22px;
       font-weight: 700;
-      margin-top: 4px;
+      margin-top: 6px;
       letter-spacing: -0.01em;
     }
     .etf-stat-value.positive { color: var(--success-dark); }
@@ -522,8 +522,8 @@
     .etf-bilan {
       background: var(--primary-soft);
       border-radius: var(--radius-md);
-      padding: 22px 26px;
-      margin-bottom: 20px;
+      padding: 26px 30px;
+      margin-bottom: 22px;
       border: 1.5px solid transparent;
     }
     .etf-bilan.positive {
@@ -535,47 +535,58 @@
       border-color: var(--danger-border);
     }
     .bilan-title {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.06em;
       font-weight: 700;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     .bilan-row {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      padding: 7px 0;
-      font-size: 15px;
+      padding: 8px 0;
+      font-size: 17px;
     }
     .bilan-row.bilan-gain {
       border-top: 1.5px solid rgba(0,0,0,0.06);
-      margin-top: 6px;
-      padding-top: 14px;
-      font-size: 22px;
+      margin-top: 8px;
+      padding-top: 16px;
+      font-size: 26px;
       font-weight: 700;
       letter-spacing: -0.02em;
     }
     .bilan-row.bilan-gain.positive { color: var(--success-dark); }
     .bilan-row.bilan-gain.negative { color: var(--danger-dark); }
     .bilan-row.bilan-rendement {
-      font-size: 15px;
+      font-size: 17px;
       font-weight: 600;
-      padding-top: 8px;
+      padding-top: 10px;
     }
     .bilan-row.bilan-rendement.positive { color: var(--success-dark); }
     .bilan-row.bilan-rendement.negative { color: var(--danger-dark); }
+    .bilan-row.bilan-spread {
+      font-size: 15px;
+      color: var(--text-muted);
+      font-weight: 500;
+      padding-top: 4px;
+    }
+    .bilan-row.bilan-spread strong {
+      font-weight: 700;
+    }
+    .bilan-row.bilan-spread.positive strong { color: var(--success-dark); }
+    .bilan-row.bilan-spread.negative strong { color: var(--danger-dark); }
 
-    .etf-subsection { margin-top: 20px; }
+    .etf-subsection { margin-top: 24px; }
     .etf-subsection-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
     }
     .etf-subsection-title {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.06em;
@@ -586,8 +597,8 @@
       color: var(--primary-dark);
       border: none;
       border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 12px;
+      padding: 7px 14px;
+      font-size: 14px;
       cursor: pointer;
       font-weight: 600;
       font-family: inherit;
@@ -598,60 +609,40 @@
     .mouvement, .dividende {
       background: var(--bg);
       border-radius: 10px;
-      padding: 12px 16px;
-      margin-bottom: 6px;
+      padding: 14px 18px;
+      margin-bottom: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 16px;
       transition: background 0.15s;
     }
     .mouvement:hover, .dividende:hover { background: #eeecf5; }
     .mouvement-type {
       display: inline-block;
-      font-size: 10px;
-      padding: 3px 8px;
+      font-size: 11px;
+      padding: 4px 10px;
       border-radius: 6px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       font-weight: 700;
-      margin-right: 10px;
+      margin-right: 12px;
     }
     .mouvement-type.achat { background: var(--success-soft); color: var(--success-dark); }
     .mouvement-type.vente { background: #fed7aa; color: #c2410c; }
-    .mouvement-date { color: var(--text-muted); margin-right: 10px; }
+    .mouvement-date { color: var(--text-muted); margin-right: 12px; }
     .mouvement-detail { color: var(--text); }
-    .mouvement-frais { color: var(--text-subtle); font-size: 12px; }
+    .mouvement-frais { color: var(--text-subtle); font-size: 14px; }
     .mouvement-total { font-weight: 700; }
 
     .empty-inline {
       text-align: center;
-      padding: 16px;
+      padding: 18px;
       color: var(--text-muted);
-      font-size: 14px;
+      font-size: 15px;
       background: var(--bg);
       border-radius: 10px;
-    }
-
-    .spread-line {
-      margin-top: 12px;
-      padding: 12px 18px;
-      border-radius: 12px;
-      font-size: 14px;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-    .spread-line.ok { background: var(--success-soft); color: var(--success-dark); border: 1px solid var(--success-border); }
-    .spread-line.err { background: var(--danger-soft); color: var(--danger-dark); border: 1px solid var(--danger-border); }
-    .spread-line strong { font-size: 17px; font-weight: 700; }
-    .spread-verdict {
-      opacity: 0.85;
-      font-style: italic;
-      margin-left: auto;
-      font-size: 13px;
     }
 
     /* Comparison card dashboard */
@@ -660,13 +651,13 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 12px 0;
+      padding: 14px 0;
       border-bottom: 1px solid var(--border-soft);
-      font-size: 15px;
+      font-size: 17px;
     }
     .comparison-row:last-of-type { border-bottom: none; }
     .comparison-row.total {
-      padding-top: 16px;
+      padding-top: 18px;
       margin-top: 4px;
       border-top: 2px solid var(--primary);
       border-bottom: none;
@@ -675,44 +666,49 @@
     .rate-value {
       font-family: inherit;
       font-variant-numeric: tabular-nums;
-      font-size: 18px;
+      font-size: 22px;
       font-weight: 700;
       letter-spacing: -0.01em;
     }
     .rate-value.positive { color: var(--success-dark); }
     .rate-value.negative { color: var(--danger-dark); }
-    .rate-value.big { font-size: 28px; letter-spacing: -0.02em; }
+    .rate-value.big { font-size: 34px; letter-spacing: -0.02em; }
 
     .verdict-banner {
-      margin-top: 16px;
-      padding: 14px 18px;
+      margin-top: 18px;
+      padding: 16px 20px;
       border-radius: 12px;
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 500;
     }
     .verdict-banner.ok { background: var(--success-soft); color: var(--success-dark); border: 1px solid var(--success-border); }
     .verdict-banner.err { background: var(--danger-soft); color: var(--danger-dark); border: 1px solid var(--danger-border); }
 
     .settings-help {
-      font-size: 12px;
+      font-size: 14px;
       color: var(--text-muted);
-      margin-top: 6px;
+      margin-top: 8px;
       line-height: 1.5;
     }
 
-    /* Annual performance table */
+    /* Annual performance : wrapped in its own soft card */
+    .annual-wrapper {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+    }
     .annual-table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 14px;
+      font-size: 16px;
     }
     .annual-table th, .annual-table td {
-      padding: 12px 14px;
+      padding: 14px 16px;
       text-align: right;
       border-bottom: 1px solid var(--border-soft);
     }
     .annual-table th {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -720,24 +716,26 @@
       text-align: right;
     }
     .annual-table th:first-child, .annual-table td:first-child { text-align: left; font-weight: 600; }
+    .annual-table tr:last-child td { border-bottom: none; }
     .annual-table td { font-variant-numeric: tabular-nums; }
     .annual-table td.market { color: var(--text-muted); font-weight: 400; }
     .annual-table td.positive { color: var(--success-dark); font-weight: 700; }
     .annual-table td.negative { color: var(--danger-dark); font-weight: 700; }
+    .annual-table tr.short td { color: var(--text-subtle) !important; font-weight: 500 !important; font-style: italic; }
     .annual-table tr.ytd td:first-child::after {
       content: ' (en cours)';
       color: var(--text-subtle);
       font-weight: normal;
-      font-size: 12px;
+      font-size: 13px;
     }
 
     @media (max-width: 768px) {
       header { padding: 16px 20px; }
       main { padding: 20px; }
       .card, .etf-card { padding: 20px; }
-      .stat-value { font-size: 22px; }
+      .stat-value { font-size: 24px; }
       nav { padding: 8px 12px; }
-      nav button { padding: 8px 14px; font-size: 13px; }
+      nav button { padding: 8px 14px; font-size: 14px; }
     }
   </style>
 </head>
@@ -1606,6 +1604,22 @@
             </div>`
           : '';
 
+        // Ligne spread vs coût du prêt, intégrée au Bilan
+        const tauxPret = tauxMoyenPondere();
+        let spreadRow = '';
+        if (s.rendementAnnualise != null && data.pret.tranches.length > 0) {
+          const rendPct = s.rendementAnnualise * 100;
+          const spread = rendPct - tauxPret;
+          const sCls = spread >= 0 ? 'positive' : 'negative';
+          const verb = spread >= 0 ? 'bat le prêt de' : 'sous le prêt de';
+          spreadRow = `
+            <div class="bilan-row bilan-spread ${sCls}">
+              <span>${verb} <strong>${spread >= 0 ? '+' : ''}${fmtPct(spread)}</strong></span>
+              <span>Coût prêt : ${fmtPct(tauxPret)}</span>
+            </div>
+          `;
+        }
+
         const bilanHtml = investi > 0 || gainTotal !== 0 ? `
           <div class="etf-bilan ${bilanCls}">
             <div class="bilan-title">💰 Bilan</div>
@@ -1624,25 +1638,12 @@
               <span class="text-mono">${gainSign}${fmtCHF2(Math.abs(gainTotal))}${pctStr}</span>
             </div>
             ${rendementRow}
+            ${spreadRow}
           </div>
         ` : '';
 
-        // Spread rendement ETF vs coût du prêt
-        const tauxPret = tauxMoyenPondere();
+        // Ancien bandeau spread supprimé (fusionné dans le Bilan)
         let spreadHtml = '';
-        if (s.rendementAnnualise != null && data.pret.tranches.length > 0) {
-          const rendPct = s.rendementAnnualise * 100;
-          const spread = rendPct - tauxPret;
-          const spreadCls = spread >= 0 ? 'ok' : 'err';
-          const verb = spread >= 0 ? 'bat le coût du prêt de' : 'sous le coût du prêt de';
-          spreadHtml = `
-            <div class="spread-line ${spreadCls}">
-              Rendement ${rendPct >= 0 ? '+' : ''}${fmtPct(rendPct)} − Coût prêt ${fmtPct(tauxPret)} =
-              <strong>${spread >= 0 ? '+' : ''}${fmtPct(spread)}</strong>
-              <span class="spread-verdict">${verb} ${fmtPct(Math.abs(spread))}</span>
-            </div>
-          `;
-        }
 
         // Performance annuelle depuis l'historique importé
         const annual = computeAnnualPerformance(etf);
@@ -1650,21 +1651,24 @@
         let hasNote = false;
         if (annual.length > 0) {
           const rows = annual.slice(-8).reverse().map(a => {
-            const trCls = a.isCurrentYear ? 'ytd' : '';
+            const trClasses = [];
+            if (a.isCurrentYear) trClasses.push('ytd');
+            if (a.note) trClasses.push('short');
+            const trCls = trClasses.join(' ');
             const marketPrefix = a.marketReturnPct >= 0 ? '+' : '';
             const marketCell = `<td class="market">${marketPrefix}${fmtPct(a.marketReturnPct)}</td>`;
 
             let userCell = '<td>—</td>';
             let spreadCell = '<td>—</td>';
             if (a.userReturnPct != null) {
-              const uCls = a.userReturnPct >= 0 ? 'positive' : 'negative';
+              const uCls = a.note ? '' : (a.userReturnPct >= 0 ? 'positive' : 'negative');
               const uPrefix = a.userReturnPct >= 0 ? '+' : '';
               const noteStr = a.note || '';
               userCell = `<td class="${uCls}">${uPrefix}${fmtPct(a.userReturnPct)}${noteStr}</td>`;
               if (a.note) hasNote = true;
               if (data.pret.tranches.length > 0) {
                 const spread = a.userReturnPct - tauxPret;
-                const sCls = spread >= 0 ? 'positive' : 'negative';
+                const sCls = a.note ? '' : (spread >= 0 ? 'positive' : 'negative');
                 spreadCell = `<td class="${sCls}">${spread >= 0 ? '+' : ''}${fmtPct(spread)}</td>`;
               }
             }
@@ -1679,24 +1683,26 @@
             `;
           }).join('');
           const noteText = hasNote
-            ? '<div class="settings-help" style="margin-top:8px;">* Position détenue moins de 90 jours : le taux annualisé peut être trompeur.</div>'
+            ? '<div class="settings-help" style="margin-top:10px;">Les lignes en italique gris correspondent à des périodes trop courtes (< 90 jours) — le taux annualisé y est peu significatif.</div>'
             : '';
           annualHtml = `
             <div class="etf-subsection">
               <div class="etf-subsection-header">
                 <span class="etf-subsection-title">📅 Performance par année</span>
               </div>
-              <table class="annual-table">
-                <thead>
-                  <tr>
-                    <th>Année</th>
-                    <th>Marché</th>
-                    <th>Mon rend.</th>
-                    <th>vs Prêt</th>
-                  </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>
+              <div class="annual-wrapper">
+                <table class="annual-table">
+                  <thead>
+                    <tr>
+                      <th>Année</th>
+                      <th>Marché</th>
+                      <th>Mon rend.</th>
+                      <th>vs Prêt</th>
+                    </tr>
+                  </thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>
               ${noteText}
             </div>
           `;
@@ -1765,7 +1771,7 @@
                 <div class="etf-stat-value text-mono">${s.quantite.toFixed(2)}</div>
               </div>
               <div>
-                <div class="etf-stat-label">PRU (prix de revient)</div>
+                <div class="etf-stat-label">Prix moyen d'achat</div>
                 <div class="etf-stat-value text-mono">${fmtCHF2(s.pru)}</div>
               </div>
               <div>
