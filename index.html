@@ -1156,16 +1156,112 @@
         </div>
       </div>
 
-      <div class="form-row">
-        <label>Provision vacance locative</label>
-        <input type="number" id="bien-ch-vacance" step="10" inputmode="decimal" placeholder="0">
-        <div class="settings-help">Réserve mensuelle pour couvrir les mois sans loyer (typiquement 5% du loyer)</div>
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Impôts (mensualisé)</label>
+          <input type="number" id="bien-ch-impots" step="10" inputmode="decimal" placeholder="0">
+        </div>
+        <div class="form-row">
+          <label>Provision vacance</label>
+          <input type="number" id="bien-ch-vacance" step="10" inputmode="decimal" placeholder="0">
+        </div>
       </div>
 
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeBienModal()">Annuler</button>
         <button class="btn btn-danger" id="btn-delete-bien" onclick="deleteBien()" style="display:none">Supprimer</button>
         <button class="btn" onclick="saveBien()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Bilan annuel -->
+  <div class="modal-overlay" id="modal-annual">
+    <div class="modal" style="max-width:640px;">
+      <h2 id="modal-annual-title">Nouveau bilan annuel</h2>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Année</label>
+          <input type="number" id="annual-year" step="1" placeholder="2025">
+        </div>
+        <div class="form-row">
+          <label>Loyers reçus dans l'année (CHF)</label>
+          <input type="number" id="annual-loyers" step="100" inputmode="decimal" placeholder="30000">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Mois de vacance (indicatif)</label>
+        <input type="number" id="annual-vacance-mois" step="1" min="0" max="12" placeholder="0">
+        <div class="settings-help">Note informative — ce champ ne modifie pas le loyer, saisis directement le total reçu ci-dessus.</div>
+      </div>
+
+      <div class="section-title" style="margin-top:24px;">Charges réelles de l'année</div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Entretien</label>
+          <input type="number" id="annual-ch-entretien" step="100" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Charges PPE</label>
+          <input type="number" id="annual-ch-ppe" step="100" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Gérance</label>
+          <input type="number" id="annual-ch-gerance" step="100" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Assurance</label>
+          <input type="number" id="annual-ch-assurance" step="100" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Impôts</label>
+          <input type="number" id="annual-ch-impots" step="100" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Autres (exceptionnel)</label>
+          <input type="number" id="annual-ch-autres" step="100" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:24px;">Financement de l'année</div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Intérêts payés</label>
+          <input type="number" id="annual-interets" step="100" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Amortissement payé</label>
+          <input type="number" id="annual-amortissement" step="100" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:24px;">Valorisation</div>
+
+      <div class="form-row">
+        <label>Valeur du bien au 31.12 (optionnel)</label>
+        <input type="number" id="annual-valeur-fin" step="1000" inputmode="decimal">
+        <div class="settings-help">Réévaluation du bien en fin d'année (si non renseignée, on garde la valeur actuelle du bien)</div>
+      </div>
+
+      <div class="form-row">
+        <label>Commentaire (optionnel)</label>
+        <input type="text" id="annual-commentaire" placeholder="Ex: 2 mois vacants + grosse réparation chauffage">
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeAnnualModal()">Annuler</button>
+        <button class="btn btn-danger" id="btn-delete-annual" onclick="deleteAnnual()" style="display:none">Supprimer</button>
+        <button class="btn" onclick="saveAnnual()">Enregistrer</button>
       </div>
     </div>
   </div>
@@ -2521,6 +2617,7 @@
           ppe: 'Charges PPE',
           gerance: 'Gérance',
           assurance: 'Assurance',
+          impots: 'Impôts',
           vacance: 'Prov. vacance'
         };
         const chargesDetail = Object.entries(bien.charges || {})
@@ -2608,6 +2705,54 @@
                 <div class="charges-detail">${chargesDetail}</div>
               </div>
             ` : ''}
+
+            ${(() => {
+              const annuals = [...(bien.annuals || [])].sort((a, b) => b.year - a.year);
+              const rows = annuals.map(a => {
+                const b = computeAnnualBilan(a, bien);
+                const netCls = b.netApresFin >= 0 ? 'positive' : 'negative';
+                const vacanceStr = a.moisVacance ? ` <span style="color:var(--warning-dark);font-size:12px;">${a.moisVacance} mois vacants</span>` : '';
+                const commentStr = a.commentaire ? `<div style="font-size:13px;color:var(--text-muted);font-style:italic;margin-top:4px;">${escapeHtml(a.commentaire)}</div>` : '';
+                return `
+                  <tr onclick="openAnnualModal('${bien.id}', '${a.id}')" style="cursor:pointer;">
+                    <td><strong>${a.year}</strong>${vacanceStr}${commentStr}</td>
+                    <td>${fmtCHF(b.loyers)}</td>
+                    <td>−${fmtCHF(b.charges)}</td>
+                    <td>−${fmtCHF(b.interets)}</td>
+                    <td>−${fmtCHF(b.amort)}</td>
+                    <td class="${netCls}">${b.netApresFin >= 0 ? '+' : '−'}${fmtCHF(Math.abs(b.netApresFin))}</td>
+                    <td class="${netCls}">${b.rendementCashflow >= 0 ? '+' : ''}${fmtPct(b.rendementCashflow)}</td>
+                  </tr>
+                `;
+              }).join('');
+              return `
+                <div class="etf-subsection">
+                  <div class="etf-subsection-header">
+                    <span class="etf-subsection-title">📊 Bilan par année</span>
+                    <button class="btn-add-small" onclick="openAnnualModal('${bien.id}')">+ Nouvelle année</button>
+                  </div>
+                  ${annuals.length === 0
+                    ? '<div class="empty-inline">Aucun bilan annuel enregistré. Clôture ta première année pour suivre la rentabilité réelle du bien.</div>'
+                    : `<div class="annual-wrapper">
+                        <table class="annual-table">
+                          <thead>
+                            <tr>
+                              <th>Année</th>
+                              <th>Loyers</th>
+                              <th>Charges</th>
+                              <th>Intérêts</th>
+                              <th>Amort.</th>
+                              <th>Net</th>
+                              <th>Rend.</th>
+                            </tr>
+                          </thead>
+                          <tbody>${rows}</tbody>
+                        </table>
+                      </div>`
+                  }
+                </div>
+              `;
+            })()}
           </div>
         `;
       }).join('');
@@ -2631,6 +2776,7 @@
       document.getElementById('bien-ch-ppe').value = '';
       document.getElementById('bien-ch-gerance').value = '';
       document.getElementById('bien-ch-assurance').value = '';
+      document.getElementById('bien-ch-impots').value = '';
       document.getElementById('bien-ch-vacance').value = '';
       document.getElementById('btn-delete-bien').style.display = 'none';
       document.getElementById('modal-bien-title').textContent = 'Nouveau bien';
@@ -2653,6 +2799,7 @@
           document.getElementById('bien-ch-ppe').value = c.ppe || '';
           document.getElementById('bien-ch-gerance').value = c.gerance || '';
           document.getElementById('bien-ch-assurance').value = c.assurance || '';
+          document.getElementById('bien-ch-impots').value = c.impots || '';
           document.getElementById('bien-ch-vacance').value = c.vacance || '';
         }
       }
@@ -2685,14 +2832,20 @@
           ppe: parseFloat(document.getElementById('bien-ch-ppe').value) || 0,
           gerance: parseFloat(document.getElementById('bien-ch-gerance').value) || 0,
           assurance: parseFloat(document.getElementById('bien-ch-assurance').value) || 0,
+          impots: parseFloat(document.getElementById('bien-ch-impots').value) || 0,
           vacance: parseFloat(document.getElementById('bien-ch-vacance').value) || 0
         }
       };
 
       if (editingBienId) {
         const idx = data.biens.findIndex(x => x.id === editingBienId);
-        if (idx >= 0) data.biens[idx] = bien;
+        if (idx >= 0) {
+          // Preserve annuals when editing
+          bien.annuals = data.biens[idx].annuals || [];
+          data.biens[idx] = bien;
+        }
       } else {
+        bien.annuals = [];
         data.biens.push(bien);
       }
       saveData();
@@ -2709,6 +2862,148 @@
       closeBienModal();
       renderBiens();
       toast('Bien supprimé');
+    }
+
+    // ==== BILAN ANNUEL (par bien) ====
+    let editingAnnualCtx = null; // { bienId, annualId }
+
+    function computeAnnualBilan(annual, bien) {
+      const loyers = annual.loyersRecus || 0;
+      const charges = Object.values(annual.charges || {}).reduce((s, c) => s + (c || 0), 0);
+      const interets = annual.interets || 0;
+      const amort = annual.amortissement || 0;
+      const netAvantFin = loyers - charges;
+      const netApresFin = netAvantFin - interets - amort;
+      const prix = bien.prixAchat || 0;
+      const rendementBrut = prix > 0 ? (loyers / prix) * 100 : 0;
+      const rendementLocatif = prix > 0 ? (netAvantFin / prix) * 100 : 0;
+      const rendementCashflow = prix > 0 ? (netApresFin / prix) * 100 : 0;
+      return { loyers, charges, interets, amort, netAvantFin, netApresFin, rendementBrut, rendementLocatif, rendementCashflow };
+    }
+
+    function openAnnualModal(bienId, annualId) {
+      editingAnnualCtx = { bienId, annualId: annualId || null };
+      const modal = document.getElementById('modal-annual');
+      const bien = data.biens.find(b => b.id === bienId);
+      if (!bien) return;
+
+      // Reset
+      document.getElementById('annual-year').value = new Date().getFullYear() - 1;
+      document.getElementById('annual-loyers').value = '';
+      document.getElementById('annual-vacance-mois').value = '';
+      document.getElementById('annual-ch-entretien').value = '';
+      document.getElementById('annual-ch-ppe').value = '';
+      document.getElementById('annual-ch-gerance').value = '';
+      document.getElementById('annual-ch-assurance').value = '';
+      document.getElementById('annual-ch-impots').value = '';
+      document.getElementById('annual-ch-autres').value = '';
+      document.getElementById('annual-interets').value = '';
+      document.getElementById('annual-amortissement').value = '';
+      document.getElementById('annual-valeur-fin').value = '';
+      document.getElementById('annual-commentaire').value = '';
+      document.getElementById('btn-delete-annual').style.display = 'none';
+      document.getElementById('modal-annual-title').textContent = 'Nouveau bilan annuel';
+
+      if (annualId) {
+        const a = (bien.annuals || []).find(x => x.id === annualId);
+        if (a) {
+          document.getElementById('modal-annual-title').textContent = 'Modifier le bilan ' + a.year;
+          document.getElementById('btn-delete-annual').style.display = 'inline-block';
+          document.getElementById('annual-year').value = a.year || '';
+          document.getElementById('annual-loyers').value = a.loyersRecus || '';
+          document.getElementById('annual-vacance-mois').value = a.moisVacance || '';
+          const c = a.charges || {};
+          document.getElementById('annual-ch-entretien').value = c.entretien || '';
+          document.getElementById('annual-ch-ppe').value = c.ppe || '';
+          document.getElementById('annual-ch-gerance').value = c.gerance || '';
+          document.getElementById('annual-ch-assurance').value = c.assurance || '';
+          document.getElementById('annual-ch-impots').value = c.impots || '';
+          document.getElementById('annual-ch-autres').value = c.autres || '';
+          document.getElementById('annual-interets').value = a.interets || '';
+          document.getElementById('annual-amortissement').value = a.amortissement || '';
+          document.getElementById('annual-valeur-fin').value = a.valeurFin || '';
+          document.getElementById('annual-commentaire').value = a.commentaire || '';
+        }
+      } else {
+        // Pré-remplir avec les valeurs annuelles projetées (base × 12)
+        const bc = bien.charges || {};
+        const partCapital = data.pret.montantTotal > 0 ? (bien.prixAchat || 0) / data.pret.montantTotal : 0;
+        const interetsAn = totalInterestMonthly() * partCapital * 12;
+        document.getElementById('annual-loyers').value = (bien.loyerMensuel || 0) * 12 || '';
+        document.getElementById('annual-ch-entretien').value = (bc.entretien || 0) * 12 || '';
+        document.getElementById('annual-ch-ppe').value = (bc.ppe || 0) * 12 || '';
+        document.getElementById('annual-ch-gerance').value = (bc.gerance || 0) * 12 || '';
+        document.getElementById('annual-ch-assurance').value = (bc.assurance || 0) * 12 || '';
+        document.getElementById('annual-ch-impots').value = (bc.impots || 0) * 12 || '';
+        document.getElementById('annual-interets').value = interetsAn ? Math.round(interetsAn) : '';
+        document.getElementById('annual-amortissement').value = (bien.amortissement || 0) * 12 || '';
+      }
+      modal.classList.add('active');
+    }
+
+    function closeAnnualModal() {
+      document.getElementById('modal-annual').classList.remove('active');
+      editingAnnualCtx = null;
+    }
+
+    function saveAnnual() {
+      if (!editingAnnualCtx) return;
+      const { bienId, annualId } = editingAnnualCtx;
+      const bien = data.biens.find(b => b.id === bienId);
+      if (!bien) return;
+      if (!bien.annuals) bien.annuals = [];
+
+      const year = parseInt(document.getElementById('annual-year').value);
+      const loyers = parseFloat(document.getElementById('annual-loyers').value) || 0;
+      if (!year || year < 1900 || year > 2200) { alert('Année invalide'); return; }
+
+      const annual = {
+        id: annualId || uid(),
+        year,
+        loyersRecus: loyers,
+        moisVacance: parseInt(document.getElementById('annual-vacance-mois').value) || 0,
+        charges: {
+          entretien: parseFloat(document.getElementById('annual-ch-entretien').value) || 0,
+          ppe: parseFloat(document.getElementById('annual-ch-ppe').value) || 0,
+          gerance: parseFloat(document.getElementById('annual-ch-gerance').value) || 0,
+          assurance: parseFloat(document.getElementById('annual-ch-assurance').value) || 0,
+          impots: parseFloat(document.getElementById('annual-ch-impots').value) || 0,
+          autres: parseFloat(document.getElementById('annual-ch-autres').value) || 0
+        },
+        interets: parseFloat(document.getElementById('annual-interets').value) || 0,
+        amortissement: parseFloat(document.getElementById('annual-amortissement').value) || 0,
+        valeurFin: parseFloat(document.getElementById('annual-valeur-fin').value) || 0,
+        commentaire: document.getElementById('annual-commentaire').value.trim()
+      };
+
+      if (annualId) {
+        const idx = bien.annuals.findIndex(x => x.id === annualId);
+        if (idx >= 0) bien.annuals[idx] = annual;
+      } else {
+        // Vérifier qu'aucun bilan n'existe déjà pour cette année
+        if (bien.annuals.some(a => a.year === year)) {
+          alert('Un bilan existe déjà pour ' + year + '. Édite-le au lieu d\'en créer un nouveau.');
+          return;
+        }
+        bien.annuals.push(annual);
+      }
+      saveData();
+      closeAnnualModal();
+      renderBiens();
+      toast('Bilan ' + year + ' enregistré');
+    }
+
+    function deleteAnnual() {
+      if (!editingAnnualCtx || !editingAnnualCtx.annualId) return;
+      const { bienId, annualId } = editingAnnualCtx;
+      const bien = data.biens.find(b => b.id === bienId);
+      if (!bien) return;
+      if (!confirm('Supprimer ce bilan annuel ?')) return;
+      bien.annuals = (bien.annuals || []).filter(a => a.id !== annualId);
+      saveData();
+      closeAnnualModal();
+      renderBiens();
+      toast('Bilan supprimé');
     }
 
     // ==== INIT ====
