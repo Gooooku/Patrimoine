@@ -986,40 +986,6 @@
           <div class="allocation-legend" id="allocation-legend"></div>
         </div>
 
-        <div class="card comparison-card" id="comparison-card" style="display:none">
-          <h2>📊 Rendement des poches vs Coût du prêt</h2>
-          <div class="comparison-baseline">
-            <span>Coût du prêt (taux moyen)</span>
-            <span class="rate-value negative" id="cmp-pret">—</span>
-          </div>
-          <div class="comparison-grid">
-            <div class="comparison-block" id="cmp-block-bourse" style="display:none">
-              <div class="comparison-block-title">📈 Bourse</div>
-              <div class="comparison-block-rate">
-                <span>Rendement annualisé</span>
-                <span class="rate-value" id="cmp-bourse">—</span>
-              </div>
-              <div class="comparison-block-spread">
-                <span>Écart net</span>
-                <span class="rate-value big" id="cmp-bourse-ecart">—</span>
-              </div>
-              <div id="cmp-bourse-verdict"></div>
-            </div>
-            <div class="comparison-block" id="cmp-block-immo" style="display:none">
-              <div class="comparison-block-title">🏠 Immo</div>
-              <div class="comparison-block-rate">
-                <span>Rendement locatif net</span>
-                <span class="rate-value" id="cmp-immo">—</span>
-              </div>
-              <div class="comparison-block-spread">
-                <span>Écart net</span>
-                <span class="rate-value big" id="cmp-immo-ecart">—</span>
-              </div>
-              <div id="cmp-immo-verdict"></div>
-            </div>
-          </div>
-        </div>
-
         <div class="card" id="bilan-annee-card" style="display:none">
           <h2>📅 Bilan par année (toutes poches)</h2>
           <div class="annual-wrapper">
@@ -1027,20 +993,18 @@
               <thead>
                 <tr>
                   <th>Année</th>
-                  <th>Loyers</th>
-                  <th>Charges</th>
-                  <th>Intérêts</th>
-                  <th>Amort</th>
-                  <th>Net Immo</th>
+                  <th>Immo net</th>
+                  <th>%</th>
                   <th>Gain Bourse</th>
-                  <th>Total Net</th>
+                  <th>%</th>
+                  <th>Total net</th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
           </div>
           <div class="settings-help" style="margin-top:10px;">
-            "Net Immo" et "Total Net" excluent l'amortissement (économiquement neutre : c'est de l'équité, pas une perte). L'amort est visible dans sa propre colonne.
+            Immo net = loyers − charges − intérêts (l'amortissement est exclu : c'est de l'équité, pas une perte). % = rapport au capital investi de chaque poche.
           </div>
         </div>
 
@@ -1822,12 +1786,12 @@
         const y = parseInt(h.date.slice(0, 4));
         if (!isNaN(y)) yearsSet.add(y);
       }));
-      // Assure année en cours si activité bourse récente
       if (data.etfs.some(e => (e.mouvements || []).length > 0)) {
         yearsSet.add(new Date().getFullYear());
       }
       const years = [...yearsSet].sort((a, b) => b - a);
       const currentYear = new Date().getFullYear();
+      const totalPrixBiens = data.biens.reduce((s, b) => s + (b.prixAchat || 0), 0);
 
       return years.map(year => {
         let loyers = 0, charges = 0, interets = 0, amort = 0;
@@ -1841,23 +1805,56 @@
           }
         });
         const immoHasData = (loyers + charges + interets + amort) > 0;
-        // Bilan économique immo (sans amort, l'amort est équité)
         const immoNet = immoHasData ? (loyers - charges - interets) : null;
+        const immoPct = immoHasData && totalPrixBiens > 0 ? (immoNet / totalPrixBiens) * 100 : null;
 
+        // Bourse : gain CHF + base moyenne pour le %
         let bourseGain = 0;
+        let bourseBase = 0;
         let bourseHasData = false;
+        const yearStartDate = String(year) + '-01-01';
+        const isCurrentYear = year === currentYear;
+        const yearEndDate = isCurrentYear ? new Date().toISOString().slice(0, 10) : String(year) + '-12-31';
+
         data.etfs.forEach(e => {
           const g = etfCHFGainYear(e, year);
-          if (g != null) { bourseGain += g; bourseHasData = true; }
+          if (g == null) return;
+          bourseHasData = true;
+          bourseGain += g;
+          // Base = coût moyen investi durant l'année (approx)
+          let qtyStart = 0, coutStart = 0;
+          (e.mouvements || []).filter(m => (m.date || '') < yearStartDate).forEach(m => {
+            const q = m.quantite || 0, p = m.prix || 0, f = m.frais || 0;
+            if (m.type === 'achat') { qtyStart += q; coutStart += q * p + f; }
+            else if (m.type === 'vente' && qtyStart > 0) {
+              const qtV = Math.min(q, qtyStart);
+              const pruAv = coutStart / qtyStart;
+              coutStart -= qtV * pruAv;
+              qtyStart -= qtV;
+            }
+          });
+          const mouvIn = (e.mouvements || []).filter(m => {
+            const d = m.date || '';
+            return d >= yearStartDate && d <= yearEndDate;
+          });
+          let netPurchases = 0;
+          mouvIn.forEach(m => {
+            const q = m.quantite || 0, p = m.prix || 0, f = m.frais || 0;
+            if (m.type === 'achat') netPurchases += q * p + f;
+            else if (m.type === 'vente') netPurchases -= q * p - f;
+          });
+          bourseBase += coutStart + netPurchases / 2;
         });
+        const boursePct = bourseHasData && bourseBase > 0 ? (bourseGain / bourseBase) * 100 : null;
 
         const totalNet = (immoNet || 0) + (bourseHasData ? bourseGain : 0);
 
         return {
           year,
           loyers, charges, interets, amort,
-          immoNet, immoHasData,
+          immoNet, immoPct, immoHasData,
           bourseGain: bourseHasData ? bourseGain : null,
+          boursePct,
           totalNet: (immoHasData || bourseHasData) ? totalNet : null,
           isCurrent: year === currentYear
         };
@@ -2028,65 +2025,6 @@
         `;
       }).join('');
 
-      // Carte comparaison — Bourse et Immo vs Coût du prêt
-      const cmpCard = document.getElementById('comparison-card');
-      const rendBourse = pocheBourseXIRR();
-      const rendImmo = pocheImmoRendementLocatifNet();
-      const tauxPret = tauxMoyenPondere();
-      const hasBourse = rendBourse != null;
-      const hasImmo = rendImmo != null;
-      const hasAny = (hasBourse || hasImmo) && data.pret.tranches.length > 0;
-
-      if (hasAny) {
-        cmpCard.style.display = 'block';
-        document.getElementById('cmp-pret').textContent = '−' + fmtPct(tauxPret);
-
-        // Bloc Bourse
-        const blockBourse = document.getElementById('cmp-block-bourse');
-        if (hasBourse) {
-          blockBourse.style.display = 'block';
-          const rendPct = rendBourse * 100;
-          const spread = rendPct - tauxPret;
-          const bEl = document.getElementById('cmp-bourse');
-          bEl.textContent = (rendPct >= 0 ? '+' : '') + fmtPct(rendPct);
-          bEl.className = 'rate-value ' + (rendPct >= 0 ? 'positive' : 'negative');
-          const eEl = document.getElementById('cmp-bourse-ecart');
-          eEl.textContent = (spread >= 0 ? '+' : '') + fmtPct(spread);
-          eEl.className = 'rate-value big ' + (spread >= 0 ? 'positive' : 'negative');
-          const vEl = document.getElementById('cmp-bourse-verdict');
-          vEl.className = 'verdict-banner ' + (spread >= 0 ? 'ok' : 'err');
-          vEl.style.marginTop = '14px';
-          vEl.textContent = spread >= 0
-            ? '✓ La bourse bat ton coût de financement.'
-            : '⚠ La bourse ne couvre pas ton coût de financement.';
-        } else {
-          blockBourse.style.display = 'none';
-        }
-
-        // Bloc Immo
-        const blockImmo = document.getElementById('cmp-block-immo');
-        if (hasImmo) {
-          blockImmo.style.display = 'block';
-          const spread = rendImmo - tauxPret;
-          const iEl = document.getElementById('cmp-immo');
-          iEl.textContent = (rendImmo >= 0 ? '+' : '') + fmtPct(rendImmo);
-          iEl.className = 'rate-value ' + (rendImmo >= 0 ? 'positive' : 'negative');
-          const eEl = document.getElementById('cmp-immo-ecart');
-          eEl.textContent = (spread >= 0 ? '+' : '') + fmtPct(spread);
-          eEl.className = 'rate-value big ' + (spread >= 0 ? 'positive' : 'negative');
-          const vEl = document.getElementById('cmp-immo-verdict');
-          vEl.className = 'verdict-banner ' + (spread >= 0 ? 'ok' : 'err');
-          vEl.style.marginTop = '14px';
-          vEl.textContent = spread >= 0
-            ? '✓ L\'immo bat ton coût de financement.'
-            : '⚠ L\'immo ne couvre pas ton coût de financement.';
-        } else {
-          blockImmo.style.display = 'none';
-        }
-      } else {
-        cmpCard.style.display = 'none';
-      }
-
       // ==== Bilan par année (toutes poches) ====
       const parAnneeCard = document.getElementById('bilan-annee-card');
       const parAnneeData = dashboardBilanParAnnee();
@@ -2094,23 +2032,27 @@
         parAnneeCard.style.display = 'block';
         const tbody = document.querySelector('#bilan-annee-table tbody');
         tbody.innerHTML = parAnneeData.map(r => {
-          const netImmoStr = r.immoHasData
+          const immoCell = r.immoHasData
             ? `<td class="${r.immoNet >= 0 ? 'positive' : 'negative'}">${r.immoNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(r.immoNet))}</td>`
             : '<td>—</td>';
-          const bourseStr = r.bourseGain != null
+          const immoPctCell = r.immoPct != null
+            ? `<td class="${r.immoPct >= 0 ? 'positive' : 'negative'}">${r.immoPct >= 0 ? '+' : ''}${fmtPct(r.immoPct)}</td>`
+            : '<td>—</td>';
+          const bourseCell = r.bourseGain != null
             ? `<td class="${r.bourseGain >= 0 ? 'positive' : 'negative'}">${r.bourseGain >= 0 ? '+' : '−'}${fmtCHF(Math.abs(r.bourseGain))}</td>`
             : '<td>—</td>';
-          const totalStr = `<td class="${r.totalNet >= 0 ? 'positive' : 'negative'}">${r.totalNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(r.totalNet))}</td>`;
+          const boursePctCell = r.boursePct != null
+            ? `<td class="${r.boursePct >= 0 ? 'positive' : 'negative'}">${r.boursePct >= 0 ? '+' : ''}${fmtPct(r.boursePct)}</td>`
+            : '<td>—</td>';
+          const totalCell = `<td class="${r.totalNet >= 0 ? 'positive' : 'negative'}"><strong>${r.totalNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(r.totalNet))}</strong></td>`;
           return `
             <tr class="${r.isCurrent ? 'ytd' : ''}">
               <td>${r.year}</td>
-              <td>${r.immoHasData ? fmtCHF(r.loyers) : '—'}</td>
-              <td>${r.immoHasData ? '−' + fmtCHF(r.charges) : '—'}</td>
-              <td>${r.immoHasData ? '−' + fmtCHF(r.interets) : '—'}</td>
-              <td>${r.immoHasData && r.amort > 0 ? '−' + fmtCHF(r.amort) : '—'}</td>
-              ${netImmoStr}
-              ${bourseStr}
-              ${totalStr}
+              ${immoCell}
+              ${immoPctCell}
+              ${bourseCell}
+              ${boursePctCell}
+              ${totalCell}
             </tr>
           `;
         }).join('');
@@ -3254,7 +3196,11 @@
               const annuals = [...(bien.annuals || [])].sort((a, b) => b.year - a.year);
               const rows = annuals.map(a => {
                 const b = computeAnnualBilan(a, bien);
-                const netCls = b.netApresFin >= 0 ? 'positive' : 'negative';
+                const netCashCls = b.netApresFin >= 0 ? 'positive' : 'negative';
+                const netEcoCls = b.netAvantFin >= 0 ? 'positive' : 'negative';
+                // Rendement économique = (loyers - charges - intérêts) / prix
+                const rendementEcoAnnuel = bien.prixAchat > 0 ? ((b.netAvantFin - b.interets) / bien.prixAchat) * 100 : 0;
+                const rendementEcoCls = rendementEcoAnnuel >= 0 ? 'positive' : 'negative';
                 const vacanceStr = a.moisVacance ? ` <span style="color:var(--warning-dark);font-size:12px;">${a.moisVacance} mois vacants</span>` : '';
                 const commentStr = a.commentaire ? `<div style="font-size:13px;color:var(--text-muted);font-style:italic;margin-top:4px;">${escapeHtml(a.commentaire)}</div>` : '';
                 return `
@@ -3264,8 +3210,8 @@
                     <td>−${fmtCHF(b.charges)}</td>
                     <td>−${fmtCHF(b.interets)}</td>
                     <td>−${fmtCHF(b.amort)}</td>
-                    <td class="${netCls}">${b.netApresFin >= 0 ? '+' : '−'}${fmtCHF(Math.abs(b.netApresFin))}</td>
-                    <td class="${netCls}">${b.rendementCashflow >= 0 ? '+' : ''}${fmtPct(b.rendementCashflow)}</td>
+                    <td class="${rendementEcoCls}">${rendementEcoAnnuel >= 0 ? '+' : ''}${fmtPct(rendementEcoAnnuel)}</td>
+                    <td class="${netCashCls}">${b.rendementCashflow >= 0 ? '+' : ''}${fmtPct(b.rendementCashflow)}</td>
                   </tr>
                 `;
               }).join('');
@@ -3286,12 +3232,16 @@
                               <th>Charges</th>
                               <th>Intérêts</th>
                               <th>Amort.</th>
-                              <th>Net</th>
-                              <th>Rend.</th>
+                              <th>Rend. éco</th>
+                              <th>Rend. cash</th>
                             </tr>
                           </thead>
                           <tbody>${rows}</tbody>
                         </table>
+                        <div class="settings-help" style="margin-top:10px;">
+                          <strong>Rend. éco</strong> = (loyers − charges − intérêts) / prix d'achat, hors amortissement (vrai rendement économique).<br>
+                          <strong>Rend. cash</strong> = idem mais amortissement inclus (cash-flow réel qui atterrit sur ton compte).
+                        </div>
                       </div>`
                   }
                 </div>
