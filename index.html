@@ -784,14 +784,23 @@
       padding: 18px 22px;
     }
     .cf-row {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 20px;
       align-items: baseline;
       padding: 8px 0;
       font-size: 16px;
     }
-    .cf-row.positive-val span:last-child { color: var(--success-dark); font-weight: 600; }
-    .cf-row.negative-val span:last-child { color: var(--danger-dark); font-weight: 600; }
+    .cf-annual {
+      color: var(--text-muted);
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+      min-width: 120px;
+      text-align: right;
+      font-weight: 400;
+    }
+    .cf-row.positive-val > span:nth-child(2) { color: var(--success-dark); font-weight: 600; }
+    .cf-row.negative-val > span:nth-child(2) { color: var(--danger-dark); font-weight: 600; }
     .cf-row.net {
       border-top: 1.5px solid rgba(0,0,0,0.08);
       margin-top: 8px;
@@ -917,6 +926,7 @@
         </div>
         <button class="btn" onclick="savePret()">Enregistrer le prêt</button>
         <div id="pret-summary"></div>
+        <div id="pret-cumul-amort" style="display:none;margin-top:14px;padding:16px 20px;background:var(--primary-soft);border-radius:12px;"></div>
       </div>
 
       <div class="section-title">Tranches du prêt</div>
@@ -1129,7 +1139,7 @@
         </div>
       </div>
       <div class="settings-help" style="margin-top:-10px;margin-bottom:16px;">
-        Amortissement = remboursement du capital du prêt attribué à ce bien (direct ou indirect via 3e pilier). Réduit ton cash-flow mais construit ton patrimoine — ce n'est pas une "charge" au sens comptable.
+        Amortissement <strong>direct</strong> uniquement : le montant que la banque déduit chaque mois du capital du prêt. Ça réduit ta dette et diminue tes intérêts au fil du temps. <strong>Ne pas mettre de valeur ici si tu fais de l'amortissement indirect via 3e pilier</strong> (le prêt ne diminue pas pendant sa durée dans ce cas).
       </div>
 
       <div class="section-title" style="margin-top:24px;">Charges mensuelles</div>
@@ -1427,8 +1437,25 @@
       return 0;
     }
 
+    // Amortissement cumulé remboursé (somme des amortissements enregistrés dans tous les bilans annuels)
+    function amortissementCumuleTotal() {
+      return data.biens.reduce((s, b) => {
+        return s + ((b.annuals || []).reduce((ss, a) => ss + (a.amortissement || 0), 0));
+      }, 0);
+    }
+
+    // Montant effectif d'une tranche = montant nominal réduit proportionnellement du remboursement cumulé
+    function trancheMontantEffectif(t) {
+      const totalOrig = data.pret.tranches.reduce((s, x) => s + (x.montant || 0), 0);
+      if (totalOrig === 0) return t.montant || 0;
+      const cumul = amortissementCumuleTotal();
+      // Cap le remboursement à la valeur du prêt pour éviter les négatifs
+      const reduction = Math.min(cumul, totalOrig) * ((t.montant || 0) / totalOrig);
+      return Math.max(0, (t.montant || 0) - reduction);
+    }
+
     function trancheInterestMonthly(t) {
-      return (t.montant || 0) * trancheInterestRate(t) / 100 / 12;
+      return trancheMontantEffectif(t) * trancheInterestRate(t) / 100 / 12;
     }
 
     function totalTranchesMontant() {
@@ -1686,6 +1713,32 @@
         summary.textContent = '';
       }
 
+      // Amortissement cumulé (issus des bilans annuels)
+      const cumul = amortissementCumuleTotal();
+      const cumulEl = document.getElementById('pret-cumul-amort');
+      if (cumul > 0 && total > 0) {
+        const effectif = Math.max(0, total - cumul);
+        cumulEl.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <div>
+              <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:4px;">Amortissement cumulé remboursé</div>
+              <div style="font-size:20px;font-weight:700;color:var(--success-dark);" class="text-mono">−${fmtCHF(cumul)}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:4px;">Prêt effectif actuel</div>
+              <div style="font-size:20px;font-weight:700;" class="text-mono">${fmtCHF(effectif)}</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">initial : ${fmtCHF(total)}</div>
+            </div>
+          </div>
+          <div class="settings-help" style="margin-top:10px;">
+            Les intérêts affichés (par tranche et sur le dashboard) sont calculés sur le montant effectif réduit. Attention : cette réduction s'applique uniquement si tu fais de l'amortissement <strong>direct</strong> (banque déduit du capital). L'amortissement indirect via 3e pilier ne réduit pas le prêt en cours.
+          </div>
+        `;
+        cumulEl.style.display = 'block';
+      } else {
+        cumulEl.style.display = 'none';
+      }
+
       const list = document.getElementById('tranches-list');
       if (data.pret.tranches.length === 0) {
         list.innerHTML = '<div class="empty-state" style="padding:20px;">Aucune tranche</div>';
@@ -1704,6 +1757,8 @@
         } else {
           details = fmtPct(taux) + ' · variable';
         }
+        const montantEff = trancheMontantEffectif(t);
+        const isReduced = Math.abs(montantEff - (t.montant || 0)) > 0.5;
         return `
           <div class="tranche ${type}" onclick="openTrancheModal('${t.id}')">
             <div class="tranche-header">
@@ -1711,7 +1766,7 @@
               <span class="tranche-type ${type}">${type}</span>
             </div>
             <div class="tranche-amounts">
-              <span class="text-mono">${fmtCHF(t.montant)}</span>
+              <span class="text-mono">${fmtCHF(t.montant)}${isReduced ? ` <span style="font-size:13px;color:var(--text-muted);font-weight:400;">→ ${fmtCHF(montantEff)} effectif</span>` : ''}</span>
               <span class="text-mono">−${fmtCHF2(interetMois)} / mois</span>
             </div>
             <div class="tranche-details">${details}</div>
@@ -2671,24 +2726,29 @@
                   <div class="cf-row positive-val">
                     <span>Loyer encaissé</span>
                     <span class="text-mono">+${fmtCHF2(s.loyerMensuel)}</span>
+                    <span class="cf-annual">+${fmtCHF(s.loyerMensuel * 12)} / an</span>
                   </div>
                   <div class="cf-row negative-val">
                     <span>Charges d'exploitation</span>
                     <span class="text-mono">−${fmtCHF2(s.chargesTotal)}</span>
+                    <span class="cf-annual">−${fmtCHF(s.chargesTotal * 12)} / an</span>
                   </div>
                   <div class="cf-row negative-val">
                     <span>Intérêts alloués <span style="opacity:0.6;">(${(s.partCapital * 100).toFixed(1)}% du prêt)</span></span>
                     <span class="text-mono">−${fmtCHF2(s.interetsAlloues)}</span>
+                    <span class="cf-annual">−${fmtCHF(s.interetsAlloues * 12)} / an</span>
                   </div>
                   ${s.amortissement > 0 ? `
                     <div class="cf-row negative-val">
                       <span>Amortissement <span style="opacity:0.6;">(construit ton patrimoine)</span></span>
                       <span class="text-mono">−${fmtCHF2(s.amortissement)}</span>
+                      <span class="cf-annual">−${fmtCHF(s.amortissement * 12)} / an</span>
                     </div>
                   ` : ''}
                   <div class="cf-row net ${netCls}">
-                    <span>Net mensuel</span>
+                    <span>Net</span>
                     <span class="text-mono">${s.cashFlowMensuelNet >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.cashFlowMensuelNet))}</span>
+                    <span class="cf-annual">${s.cashFlowAnnuelNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(s.cashFlowAnnuelNet))} / an</span>
                   </div>
                 </div>
                 <div class="settings-help" style="margin-top:10px;">
