@@ -997,6 +997,8 @@
                   <th>%</th>
                   <th>Gain Bourse</th>
                   <th>%</th>
+                  <th>Coût Cash</th>
+                  <th>%</th>
                   <th>Total net</th>
                 </tr>
               </thead>
@@ -1004,7 +1006,7 @@
             </table>
           </div>
           <div class="settings-help" style="margin-top:10px;">
-            Immo net = loyers − charges − intérêts (l'amortissement est exclu : c'est de l'équité, pas une perte). % = rapport au capital investi de chaque poche.
+            Immo net = loyers − charges − intérêts (amort exclu : c'est de l'équité). Coût Cash = ce que la portion dormante du prêt te coûte en intérêts (estimation basée sur ton cash actuel × taux moyen). Total net = Immo + Bourse − Cash.
           </div>
         </div>
 
@@ -1793,6 +1795,12 @@
       const currentYear = new Date().getFullYear();
       const totalPrixBiens = data.biens.reduce((s, b) => s + (b.prixAchat || 0), 0);
 
+      // Coût annuel du cash dormant = cash pocket × taux moyen (estimation basée sur situation actuelle)
+      const cashActuel = pocheCashMontant();
+      const tauxMoy = tauxMoyenPondere();
+      const cashCostAnnuel = cashActuel > 0 && tauxMoy > 0 ? cashActuel * tauxMoy / 100 : 0;
+      const hasCashCost = cashCostAnnuel > 0;
+
       return years.map(year => {
         let loyers = 0, charges = 0, interets = 0, amort = 0;
         data.biens.forEach(b => {
@@ -1821,7 +1829,6 @@
           if (g == null) return;
           bourseHasData = true;
           bourseGain += g;
-          // Base = coût moyen investi durant l'année (approx)
           let qtyStart = 0, coutStart = 0;
           (e.mouvements || []).filter(m => (m.date || '') < yearStartDate).forEach(m => {
             const q = m.quantite || 0, p = m.prix || 0, f = m.frais || 0;
@@ -1847,7 +1854,11 @@
         });
         const boursePct = bourseHasData && bourseBase > 0 ? (bourseGain / bourseBase) * 100 : null;
 
-        const totalNet = (immoNet || 0) + (bourseHasData ? bourseGain : 0);
+        // Cash : coût annuel (estimation constante basée sur cash actuel × taux moyen)
+        const cashCost = hasCashCost ? cashCostAnnuel : null;
+        const cashPct = hasCashCost ? -tauxMoy : null;
+
+        const totalNet = (immoNet || 0) + (bourseHasData ? bourseGain : 0) - (cashCost || 0);
 
         return {
           year,
@@ -1855,7 +1866,8 @@
           immoNet, immoPct, immoHasData,
           bourseGain: bourseHasData ? bourseGain : null,
           boursePct,
-          totalNet: (immoHasData || bourseHasData) ? totalNet : null,
+          cashCost, cashPct,
+          totalNet: (immoHasData || bourseHasData || hasCashCost) ? totalNet : null,
           isCurrent: year === currentYear
         };
       }).filter(r => r.totalNet != null);
@@ -2044,6 +2056,12 @@
           const boursePctCell = r.boursePct != null
             ? `<td class="${r.boursePct >= 0 ? 'positive' : 'negative'}">${r.boursePct >= 0 ? '+' : ''}${fmtPct(r.boursePct)}</td>`
             : '<td>—</td>';
+          const cashCell = r.cashCost != null
+            ? `<td class="negative">−${fmtCHF(r.cashCost)}</td>`
+            : '<td>—</td>';
+          const cashPctCell = r.cashPct != null
+            ? `<td class="negative">${fmtPct(r.cashPct)}</td>`
+            : '<td>—</td>';
           const totalCell = `<td class="${r.totalNet >= 0 ? 'positive' : 'negative'}"><strong>${r.totalNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(r.totalNet))}</strong></td>`;
           return `
             <tr class="${r.isCurrent ? 'ytd' : ''}">
@@ -2052,6 +2070,8 @@
               ${immoPctCell}
               ${bourseCell}
               ${boursePctCell}
+              ${cashCell}
+              ${cashPctCell}
               ${totalCell}
             </tr>
           `;
