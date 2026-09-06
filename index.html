@@ -739,6 +739,28 @@
       border: 1px solid var(--border-soft);
       border-top: 4px solid var(--immo);
     }
+    .bien-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .cashflow-column {
+      background: white;
+      border-radius: var(--radius-md);
+      padding: 22px 26px;
+      border: 1.5px solid var(--border-soft);
+    }
+    .bilan-row.bilan-secondary {
+      font-size: 14px;
+      color: var(--text-muted);
+      padding: 6px 0;
+    }
+    .bilan-row.bilan-secondary.positive .text-mono { color: var(--success-dark); }
+    .bilan-row.bilan-secondary.negative .text-mono { color: var(--danger-dark); }
+    @media (max-width: 1024px) {
+      .bien-body { grid-template-columns: 1fr; }
+    }
     .bien-header {
       display: flex;
       justify-content: space-between;
@@ -1096,9 +1118,18 @@
         </div>
       </div>
 
-      <div class="form-row">
-        <label>Loyer mensuel encaissé (CHF)</label>
-        <input type="number" id="bien-loyer" step="10" inputmode="decimal" placeholder="2500">
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Loyer mensuel encaissé (CHF)</label>
+          <input type="number" id="bien-loyer" step="10" inputmode="decimal" placeholder="2500">
+        </div>
+        <div class="form-row">
+          <label>Amortissement mensuel (CHF)</label>
+          <input type="number" id="bien-amortissement" step="10" inputmode="decimal" placeholder="500">
+        </div>
+      </div>
+      <div class="settings-help" style="margin-top:-10px;margin-bottom:16px;">
+        Amortissement = remboursement du capital du prêt attribué à ce bien (direct ou indirect via 3e pilier). Réduit ton cash-flow mais construit ton patrimoine — ce n'est pas une "charge" au sens comptable.
       </div>
 
       <div class="section-title" style="margin-top:24px;">Charges mensuelles</div>
@@ -2416,36 +2447,41 @@
       const valeurActuelle = bien.valeurActuelle || prixAchat;
       const loyerMensuel = bien.loyerMensuel || 0;
       const chargesTotal = Object.values(bien.charges || {}).reduce((s, c) => s + (c || 0), 0);
+      const amortissement = bien.amortissement || 0;
 
       // Coût intérêts alloué à ce bien (proportionnel à sa part du capital)
       const partCapital = capital > 0 ? prixAchat / capital : 0;
       const interetsAlloues = interetsTotal * partCapital;
 
       const cashFlowMensuelBrut = loyerMensuel - chargesTotal;
-      const cashFlowMensuelNet = cashFlowMensuelBrut - interetsAlloues;
+      const cashFlowMensuelNet = cashFlowMensuelBrut - interetsAlloues - amortissement;
       const cashFlowAnnuelNet = cashFlowMensuelNet * 12;
 
       const plusValueLatente = valeurActuelle - prixAchat;
       const plusValuePct = prixAchat > 0 ? (plusValueLatente / prixAchat) * 100 : 0;
 
       const rendementBrut = prixAchat > 0 ? (loyerMensuel * 12 / prixAchat) * 100 : 0;
+      // Rendement locatif net = (loyer - charges) × 12 / prix — avant financement (standard immo)
+      const rendementLocatifNet = prixAchat > 0 ? (cashFlowMensuelBrut * 12 / prixAchat) * 100 : 0;
+      // Rendement cash-flow réel = cash-flow annuel net (après intérêts + amortissement) / prix
       const rendementNet = prixAchat > 0 ? (cashFlowAnnuelNet / prixAchat) * 100 : 0;
 
       return {
-        prixAchat, valeurActuelle, loyerMensuel, chargesTotal,
+        prixAchat, valeurActuelle, loyerMensuel, chargesTotal, amortissement,
         interetsAlloues, partCapital,
         cashFlowMensuelBrut, cashFlowMensuelNet, cashFlowAnnuelNet,
         plusValueLatente, plusValuePct,
-        rendementBrut, rendementNet
+        rendementBrut, rendementLocatifNet, rendementNet
       };
     }
 
-    // Cash-flow immo mensuel agrégé (loyers − charges seulement, les intérêts sont déjà comptés au global)
+    // Cash-flow immo mensuel agrégé (loyers − charges − amortissement, les intérêts sont comptés au global)
     function cashflowImmoMensuel() {
       return data.biens.reduce((s, b) => {
         const loyer = b.loyerMensuel || 0;
         const ch = Object.values(b.charges || {}).reduce((a, c) => a + (c || 0), 0);
-        return s + loyer - ch;
+        const amort = b.amortissement || 0;
+        return s + loyer - ch - amort;
       }, 0);
     }
 
@@ -2462,12 +2498,13 @@
         const s = computeBienStats(bien);
         const gainCls = s.plusValueLatente >= 0 ? 'positive' : 'negative';
         const netCls = s.cashFlowMensuelNet >= 0 ? 'positive' : 'negative';
-        const rendementNetCls = s.rendementNet >= 0 ? 'positive' : 'negative';
+        const rendementLocatifCls = s.rendementLocatifNet >= 0 ? 'positive' : 'negative';
+        const rendementCashCls = s.rendementNet >= 0 ? 'positive' : 'negative';
 
-        // Spread rendement net vs coût du prêt
+        // Spread rendement locatif net vs coût du prêt (indicateur de leverage positif)
         let spreadRow = '';
-        if (data.pret.tranches.length > 0 && s.rendementNet != null) {
-          const spread = s.rendementNet - tauxPret;
+        if (data.pret.tranches.length > 0) {
+          const spread = s.rendementLocatifNet - tauxPret;
           const sCls = spread >= 0 ? 'positive' : 'negative';
           const verb = spread >= 0 ? 'bat le prêt de' : 'sous le prêt de';
           spreadRow = `
@@ -2503,51 +2540,63 @@
               </div>
             </div>
 
-            <div class="etf-bilan ${gainCls}">
-              <div class="bilan-title">💰 Bilan</div>
-              <div class="bilan-row">
-                <span>Prix d'achat</span>
-                <span class="text-mono">${fmtCHF(s.prixAchat)}</span>
+            <div class="bien-body">
+              <div class="etf-bilan ${rendementLocatifCls}" style="margin-bottom:0;">
+                <div class="bilan-title">💰 Bilan</div>
+                <div class="bilan-row">
+                  <span>Prix d'achat</span>
+                  <span class="text-mono">${fmtCHF(s.prixAchat)}</span>
+                </div>
+                <div class="bilan-row">
+                  <span>Valeur aujourd'hui</span>
+                  <span class="text-mono">${fmtCHF(s.valeurActuelle)}</span>
+                </div>
+                <div class="bilan-row bilan-secondary ${gainCls}">
+                  <span>Plus-value latente</span>
+                  <span class="text-mono">${s.plusValueLatente >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.plusValueLatente))} (${s.plusValueLatente >= 0 ? '+' : '−'}${fmtPct(Math.abs(s.plusValuePct))})</span>
+                </div>
+                <div class="bilan-row bilan-gain ${rendementLocatifCls}">
+                  <span>Rendement locatif net</span>
+                  <span class="text-mono">${s.rendementLocatifNet >= 0 ? '+' : ''}${fmtPct(s.rendementLocatifNet)} / an</span>
+                </div>
+                ${spreadRow}
+                <div class="bilan-row bilan-secondary ${rendementCashCls}" style="margin-top:8px;">
+                  <span>Cash-flow après financement</span>
+                  <span class="text-mono">${s.rendementNet >= 0 ? '+' : ''}${fmtPct(s.rendementNet)} / an</span>
+                </div>
               </div>
-              <div class="bilan-row">
-                <span>Valeur aujourd'hui</span>
-                <span class="text-mono">${fmtCHF(s.valeurActuelle)}</span>
-              </div>
-              <div class="bilan-row bilan-gain ${gainCls}">
-                <span>Plus-value</span>
-                <span class="text-mono">${s.plusValueLatente >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.plusValueLatente))} (${s.plusValueLatente >= 0 ? '+' : '−'}${fmtPct(Math.abs(s.plusValuePct))})</span>
-              </div>
-              <div class="bilan-row bilan-rendement ${rendementNetCls}">
-                <span>Rendement locatif net</span>
-                <span class="text-mono">${s.rendementNet >= 0 ? '+' : ''}${fmtPct(s.rendementNet)} / an</span>
-              </div>
-              ${spreadRow}
-            </div>
 
-            <div class="etf-subsection">
-              <div class="etf-subsection-header">
-                <span class="etf-subsection-title">💵 Cash-flow mensuel</span>
-              </div>
-              <div class="cashflow-breakdown">
-                <div class="cf-row positive-val">
-                  <span>Loyer encaissé</span>
-                  <span class="text-mono">+${fmtCHF2(s.loyerMensuel)}</span>
+              <div class="cashflow-column">
+                <div class="etf-subsection-header" style="margin-bottom:12px;">
+                  <span class="etf-subsection-title">💵 Cash-flow mensuel</span>
                 </div>
-                <div class="cf-row negative-val">
-                  <span>Charges (entretien, PPE, gérance, etc.)</span>
-                  <span class="text-mono">−${fmtCHF2(s.chargesTotal)}</span>
+                <div class="cashflow-breakdown">
+                  <div class="cf-row positive-val">
+                    <span>Loyer encaissé</span>
+                    <span class="text-mono">+${fmtCHF2(s.loyerMensuel)}</span>
+                  </div>
+                  <div class="cf-row negative-val">
+                    <span>Charges d'exploitation</span>
+                    <span class="text-mono">−${fmtCHF2(s.chargesTotal)}</span>
+                  </div>
+                  <div class="cf-row negative-val">
+                    <span>Intérêts alloués <span style="opacity:0.6;">(${(s.partCapital * 100).toFixed(1)}% du prêt)</span></span>
+                    <span class="text-mono">−${fmtCHF2(s.interetsAlloues)}</span>
+                  </div>
+                  ${s.amortissement > 0 ? `
+                    <div class="cf-row negative-val">
+                      <span>Amortissement <span style="opacity:0.6;">(construit ton patrimoine)</span></span>
+                      <span class="text-mono">−${fmtCHF2(s.amortissement)}</span>
+                    </div>
+                  ` : ''}
+                  <div class="cf-row net ${netCls}">
+                    <span>Net mensuel</span>
+                    <span class="text-mono">${s.cashFlowMensuelNet >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.cashFlowMensuelNet))}</span>
+                  </div>
                 </div>
-                <div class="cf-row negative-val">
-                  <span>Intérêts alloués (${(s.partCapital * 100).toFixed(1)}% du prêt)</span>
-                  <span class="text-mono">−${fmtCHF2(s.interetsAlloues)}</span>
+                <div class="settings-help" style="margin-top:10px;">
+                  Rendement brut (loyer / prix d'achat) : <strong>${fmtPct(s.rendementBrut)}</strong>
                 </div>
-                <div class="cf-row net ${netCls}">
-                  <span>Net mensuel</span>
-                  <span class="text-mono">${s.cashFlowMensuelNet >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.cashFlowMensuelNet))}</span>
-                </div>
-              </div>
-              <div class="settings-help" style="margin-top:10px;">
-                Rendement brut (loyer / prix d'achat) : <strong>${fmtPct(s.rendementBrut)}</strong> · Cash-flow annuel net : <strong>${s.cashFlowAnnuelNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(s.cashFlowAnnuelNet))}</strong>
               </div>
             </div>
 
@@ -2577,6 +2626,7 @@
       document.getElementById('bien-date-valeur').value = today;
       document.getElementById('bien-valeur').value = '';
       document.getElementById('bien-loyer').value = '';
+      document.getElementById('bien-amortissement').value = '';
       document.getElementById('bien-ch-entretien').value = '';
       document.getElementById('bien-ch-ppe').value = '';
       document.getElementById('bien-ch-gerance').value = '';
@@ -2597,6 +2647,7 @@
           document.getElementById('bien-date-valeur').value = b.dateValeur || '';
           document.getElementById('bien-valeur').value = b.valeurActuelle || '';
           document.getElementById('bien-loyer').value = b.loyerMensuel || '';
+          document.getElementById('bien-amortissement').value = b.amortissement || '';
           const c = b.charges || {};
           document.getElementById('bien-ch-entretien').value = c.entretien || '';
           document.getElementById('bien-ch-ppe').value = c.ppe || '';
@@ -2628,6 +2679,7 @@
         valeurActuelle: isFinite(valeurSaisie) && valeurSaisie > 0 ? valeurSaisie : prixAchat,
         dateValeur: document.getElementById('bien-date-valeur').value,
         loyerMensuel: parseFloat(document.getElementById('bien-loyer').value) || 0,
+        amortissement: parseFloat(document.getElementById('bien-amortissement').value) || 0,
         charges: {
           entretien: parseFloat(document.getElementById('bien-ch-entretien').value) || 0,
           ppe: parseFloat(document.getElementById('bien-ch-ppe').value) || 0,
