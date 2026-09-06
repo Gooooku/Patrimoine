@@ -645,7 +645,53 @@
       border-radius: 10px;
     }
 
-    /* Comparison card dashboard */
+    /* Bilan total (cumulé) */
+    .bilan-total-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .bilan-total-item {
+      padding: 18px 22px;
+      background: var(--bg);
+      border-radius: var(--radius);
+    }
+    .bilan-total-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+    .bilan-total-value {
+      font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+    .bilan-total-value.positive { color: var(--success-dark); }
+    .bilan-total-value.negative { color: var(--danger-dark); }
+    .bilan-total-detail {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+    .bilan-total-hero {
+      padding: 24px 28px;
+      background: linear-gradient(135deg, var(--primary-soft) 0%, #f3f0ff 100%);
+      border: 2px solid var(--primary);
+      border-radius: var(--radius-md);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-weight: 700;
+    }
+    .bilan-total-hero.positive { background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border-color: var(--success-border); color: var(--success-dark); }
+    .bilan-total-hero.negative { background: linear-gradient(135deg, #fff1f2 0%, #fef2f2 100%); border-color: var(--danger-border); color: var(--danger-dark); }
+    .bilan-total-hero-label { font-size: 15px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .bilan-total-hero-value { font-size: 32px; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
     .comparison-card { background: white; }
     .comparison-baseline {
       padding: 14px 0;
@@ -972,6 +1018,36 @@
               <div id="cmp-immo-verdict"></div>
             </div>
           </div>
+        </div>
+
+        <div class="card" id="bilan-annee-card" style="display:none">
+          <h2>📅 Bilan par année (toutes poches)</h2>
+          <div class="annual-wrapper">
+            <table class="annual-table" id="bilan-annee-table">
+              <thead>
+                <tr>
+                  <th>Année</th>
+                  <th>Loyers</th>
+                  <th>Charges</th>
+                  <th>Intérêts</th>
+                  <th>Amort</th>
+                  <th>Net Immo</th>
+                  <th>Gain Bourse</th>
+                  <th>Total Net</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="settings-help" style="margin-top:10px;">
+            "Net Immo" et "Total Net" excluent l'amortissement (économiquement neutre : c'est de l'équité, pas une perte). L'amort est visible dans sa propre colonne.
+          </div>
+        </div>
+
+        <div class="card" id="bilan-total-card" style="display:none">
+          <h2>🏆 Bilan total depuis le début</h2>
+          <div class="bilan-total-grid" id="bilan-total-content"></div>
+          <div class="bilan-total-hero" id="bilan-total-hero"></div>
         </div>
 
         <div class="card">
@@ -1638,6 +1714,191 @@
       return totalPrix > 0 ? (totalNet / totalPrix) * 100 : null;
     }
 
+    // Bilan cumulé d'un bien (somme des bilans annuels + plus-value latente)
+    function bienBilanCumule(bien) {
+      const anns = bien.annuals || [];
+      let loyers = 0, charges = 0, interets = 0, amort = 0;
+      const yearsSet = new Set();
+      anns.forEach(a => {
+        loyers += a.loyersRecus || 0;
+        const c = a.charges || {};
+        charges += Object.values(c).reduce((s, v) => s + (v || 0), 0);
+        interets += a.interets || 0;
+        amort += a.amortissement || 0;
+        if (a.year) yearsSet.add(a.year);
+      });
+      const plusValueLatente = (bien.valeurActuelle || bien.prixAchat || 0) - (bien.prixAchat || 0);
+      // Cash-flow cumulé réel (après tout)
+      const cashFlowCumule = loyers - charges - interets - amort;
+      // Bilan économique = cash reçu + équité construite (amort) + plus-value latente
+      // = loyers - charges - interets + plus-value latente
+      const bilanEconomique = loyers - charges - interets + plusValueLatente;
+      return {
+        nAnnees: yearsSet.size,
+        loyers, charges, interets, amort,
+        cashFlowCumule,
+        plusValueLatente,
+        bilanEconomique
+      };
+    }
+
+    // Gain CHF d'un ETF sur une année donnée (utilise history si dispo)
+    function etfCHFGainYear(etf, year) {
+      const yearStr = String(year);
+      const currentYear = String(new Date().getFullYear());
+      const isCurrentYear = yearStr === currentYear;
+      const yearStartDate = yearStr + '-01-01';
+      const yearEndDate = isCurrentYear ? new Date().toISOString().slice(0, 10) : yearStr + '-12-31';
+
+      // Dividendes reçus dans l'année (toujours calculables)
+      const divInYear = (etf.dividendes || []).filter(d => {
+        const dd = d.date || '';
+        return dd >= yearStartDate && dd <= yearEndDate;
+      }).reduce((s, d) => s + (d.montant || 0), 0);
+
+      if (!etf.history || etf.history.length < 2) {
+        // Pas d'historique : on retourne juste les dividendes (approximatif)
+        return divInYear > 0 ? divInYear : null;
+      }
+
+      const byYear = {};
+      etf.history.forEach(h => {
+        const y = h.date.slice(0, 4);
+        if (!byYear[y]) byYear[y] = [];
+        byYear[y].push(h);
+      });
+      if (!byYear[yearStr]) return null;
+
+      const years = Object.keys(byYear).sort();
+      const yearIndex = years.indexOf(yearStr);
+      let startPrice;
+      if (yearIndex > 0) {
+        const prev = byYear[years[yearIndex - 1]];
+        startPrice = prev[prev.length - 1].close;
+      } else {
+        startPrice = byYear[yearStr][0].close;
+      }
+      const endPrice = isCurrentYear
+        ? (etf.valeurActuelle || byYear[yearStr][byYear[yearStr].length - 1].close)
+        : byYear[yearStr][byYear[yearStr].length - 1].close;
+
+      // Quantité au début et à la fin de l'année
+      let qtyStart = 0;
+      (etf.mouvements || []).filter(m => (m.date || '') < yearStartDate).forEach(m => {
+        const q = m.quantite || 0;
+        if (m.type === 'achat') qtyStart += q;
+        else if (m.type === 'vente') qtyStart = Math.max(0, qtyStart - q);
+      });
+
+      const mouvIn = (etf.mouvements || []).filter(m => {
+        const d = m.date || '';
+        return d >= yearStartDate && d <= yearEndDate;
+      });
+      let netPurchases = 0;
+      mouvIn.forEach(m => {
+        const q = m.quantite || 0, p = m.prix || 0, f = m.frais || 0;
+        if (m.type === 'achat') netPurchases += q * p + f;
+        else if (m.type === 'vente') netPurchases -= q * p - f;
+      });
+
+      let qtyEnd = qtyStart;
+      mouvIn.forEach(m => {
+        const q = m.quantite || 0;
+        if (m.type === 'achat') qtyEnd += q;
+        else if (m.type === 'vente') qtyEnd = Math.max(0, qtyEnd - q);
+      });
+
+      const startValue = qtyStart * startPrice;
+      const endValue = qtyEnd * endPrice;
+      // Gain = (valeur fin - valeur début) - achats nets + dividendes reçus
+      return endValue - startValue - netPurchases + divInYear;
+    }
+
+    // Bilan par année agrégé (toutes poches) pour dashboard
+    function dashboardBilanParAnnee() {
+      const yearsSet = new Set();
+      data.biens.forEach(b => (b.annuals || []).forEach(a => a.year && yearsSet.add(a.year)));
+      data.etfs.forEach(e => (e.history || []).forEach(h => {
+        const y = parseInt(h.date.slice(0, 4));
+        if (!isNaN(y)) yearsSet.add(y);
+      }));
+      // Assure année en cours si activité bourse récente
+      if (data.etfs.some(e => (e.mouvements || []).length > 0)) {
+        yearsSet.add(new Date().getFullYear());
+      }
+      const years = [...yearsSet].sort((a, b) => b - a);
+      const currentYear = new Date().getFullYear();
+
+      return years.map(year => {
+        let loyers = 0, charges = 0, interets = 0, amort = 0;
+        data.biens.forEach(b => {
+          const a = (b.annuals || []).find(x => x.year === year);
+          if (a) {
+            loyers += a.loyersRecus || 0;
+            charges += Object.values(a.charges || {}).reduce((s, c) => s + (c || 0), 0);
+            interets += a.interets || 0;
+            amort += a.amortissement || 0;
+          }
+        });
+        const immoHasData = (loyers + charges + interets + amort) > 0;
+        // Bilan économique immo (sans amort, l'amort est équité)
+        const immoNet = immoHasData ? (loyers - charges - interets) : null;
+
+        let bourseGain = 0;
+        let bourseHasData = false;
+        data.etfs.forEach(e => {
+          const g = etfCHFGainYear(e, year);
+          if (g != null) { bourseGain += g; bourseHasData = true; }
+        });
+
+        const totalNet = (immoNet || 0) + (bourseHasData ? bourseGain : 0);
+
+        return {
+          year,
+          loyers, charges, interets, amort,
+          immoNet, immoHasData,
+          bourseGain: bourseHasData ? bourseGain : null,
+          totalNet: (immoHasData || bourseHasData) ? totalNet : null,
+          isCurrent: year === currentYear
+        };
+      }).filter(r => r.totalNet != null);
+    }
+
+    // Bilan cumulé total (toutes poches, depuis le début)
+    function dashboardBilanCumule() {
+      let loyersTot = 0, chargesTot = 0, interetsTot = 0, amortTot = 0, immoPvLatente = 0;
+      data.biens.forEach(b => {
+        const c = bienBilanCumule(b);
+        loyersTot += c.loyers;
+        chargesTot += c.charges;
+        interetsTot += c.interets;
+        amortTot += c.amort;
+        immoPvLatente += c.plusValueLatente;
+      });
+
+      let divsTot = 0, boursePvLatente = 0, bourseRealise = 0, fraisBourseTot = 0;
+      data.etfs.forEach(e => {
+        const s = computeEtfStats(e);
+        divsTot += s.dividendes;
+        boursePvLatente += s.plusValueLatente;
+        bourseRealise += s.plusValueRealisee;
+        fraisBourseTot += (s.fraisAchatCumul || 0) + (s.fraisVenteCumul || 0);
+      });
+
+      // Bilan économique = cash reçu opérationnel + plus-values (latentes + réalisées)
+      // (amort n'entre pas : c'est du cash transformé en équity, neutre économiquement)
+      const cashNetOperationnel = loyersTot + divsTot - chargesTot - interetsTot - fraisBourseTot;
+      const bilanEconomique = cashNetOperationnel + immoPvLatente + boursePvLatente + bourseRealise;
+
+      return {
+        loyersTot, chargesTot, interetsTot, amortTot,
+        divsTot, boursePvLatente, bourseRealise, fraisBourseTot,
+        immoPvLatente,
+        cashNetOperationnel,
+        bilanEconomique
+      };
+    }
+
     function pocheCashMontant() {
       // Cash = prêt effectif (après amortissements cumulés) - immo - bourse
       return Math.max(0, pretMontantEffectif() - pocheImmoMontant() - pocheEtfMontant());
@@ -1824,6 +2085,76 @@
         }
       } else {
         cmpCard.style.display = 'none';
+      }
+
+      // ==== Bilan par année (toutes poches) ====
+      const parAnneeCard = document.getElementById('bilan-annee-card');
+      const parAnneeData = dashboardBilanParAnnee();
+      if (parAnneeData.length > 0) {
+        parAnneeCard.style.display = 'block';
+        const tbody = document.querySelector('#bilan-annee-table tbody');
+        tbody.innerHTML = parAnneeData.map(r => {
+          const netImmoStr = r.immoHasData
+            ? `<td class="${r.immoNet >= 0 ? 'positive' : 'negative'}">${r.immoNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(r.immoNet))}</td>`
+            : '<td>—</td>';
+          const bourseStr = r.bourseGain != null
+            ? `<td class="${r.bourseGain >= 0 ? 'positive' : 'negative'}">${r.bourseGain >= 0 ? '+' : '−'}${fmtCHF(Math.abs(r.bourseGain))}</td>`
+            : '<td>—</td>';
+          const totalStr = `<td class="${r.totalNet >= 0 ? 'positive' : 'negative'}">${r.totalNet >= 0 ? '+' : '−'}${fmtCHF(Math.abs(r.totalNet))}</td>`;
+          return `
+            <tr class="${r.isCurrent ? 'ytd' : ''}">
+              <td>${r.year}</td>
+              <td>${r.immoHasData ? fmtCHF(r.loyers) : '—'}</td>
+              <td>${r.immoHasData ? '−' + fmtCHF(r.charges) : '—'}</td>
+              <td>${r.immoHasData ? '−' + fmtCHF(r.interets) : '—'}</td>
+              <td>${r.immoHasData && r.amort > 0 ? '−' + fmtCHF(r.amort) : '—'}</td>
+              ${netImmoStr}
+              ${bourseStr}
+              ${totalStr}
+            </tr>
+          `;
+        }).join('');
+      } else {
+        parAnneeCard.style.display = 'none';
+      }
+
+      // ==== Bilan total depuis le début ====
+      const cumul = dashboardBilanCumule();
+      const bilanTotalCard = document.getElementById('bilan-total-card');
+      const hasAnything = cumul.loyersTot > 0 || cumul.divsTot > 0 || cumul.immoPvLatente !== 0 || cumul.boursePvLatente !== 0;
+      if (hasAnything) {
+        bilanTotalCard.style.display = 'block';
+        const items = [
+          { label: 'Loyers cumulés perçus', value: cumul.loyersTot, cls: cumul.loyersTot > 0 ? 'positive' : '' },
+          { label: 'Charges cumulées', value: -cumul.chargesTot, cls: cumul.chargesTot > 0 ? 'negative' : '' },
+          { label: 'Intérêts cumulés payés', value: -cumul.interetsTot, cls: cumul.interetsTot > 0 ? 'negative' : '' },
+          { label: 'Plus-value latente Immo', value: cumul.immoPvLatente, cls: cumul.immoPvLatente >= 0 ? 'positive' : 'negative' },
+          { label: 'Dividendes cumulés', value: cumul.divsTot, cls: cumul.divsTot > 0 ? 'positive' : '' },
+          { label: 'Frais courtage cumulés', value: -cumul.fraisBourseTot, cls: cumul.fraisBourseTot > 0 ? 'negative' : '' },
+          { label: 'Plus-value réalisée Bourse', value: cumul.bourseRealise, cls: cumul.bourseRealise >= 0 ? 'positive' : 'negative' },
+          { label: 'Plus-value latente Bourse', value: cumul.boursePvLatente, cls: cumul.boursePvLatente >= 0 ? 'positive' : 'negative' },
+          { label: 'Amort remboursé (équité)', value: cumul.amortTot, cls: cumul.amortTot > 0 ? 'positive' : '', detail: 'transformé en propriété' }
+        ].filter(i => i.value !== 0);
+
+        document.getElementById('bilan-total-content').innerHTML = items.map(i => {
+          const sign = i.value >= 0 ? '+' : '−';
+          return `
+            <div class="bilan-total-item">
+              <div class="bilan-total-label">${i.label}</div>
+              <div class="bilan-total-value ${i.cls}">${sign}${fmtCHF(Math.abs(i.value))}</div>
+              ${i.detail ? `<div class="bilan-total-detail">${i.detail}</div>` : ''}
+            </div>
+          `;
+        }).join('');
+
+        const heroCls = cumul.bilanEconomique >= 0 ? 'positive' : 'negative';
+        document.getElementById('bilan-total-hero').className = 'bilan-total-hero ' + heroCls;
+        document.getElementById('bilan-total-hero').innerHTML = `
+          <span class="bilan-total-hero-label">Bilan économique total</span>
+          <span class="bilan-total-hero-value">${cumul.bilanEconomique >= 0 ? '+' : '−'}${fmtCHF(Math.abs(cumul.bilanEconomique))}</span>
+        `;
+      } else {
+        bilanTotalCard.style.display = 'none';
       }
     }
 
@@ -2835,6 +3166,7 @@
               </div>
             </div>
 
+            <div class="section-title" style="margin-top:0;">📅 Année en cours (projection)</div>
             <div class="bien-body">
               <div class="etf-bilan ${rendementLocatifCls}" style="margin-bottom:0;">
                 <div class="bilan-title">💰 Bilan</div>
@@ -2962,6 +3294,51 @@
                         </table>
                       </div>`
                   }
+                </div>
+              `;
+            })()}
+
+            ${(() => {
+              const cumul = bienBilanCumule(bien);
+              if (cumul.nAnnees === 0) return '';
+              const heroCls = cumul.bilanEconomique >= 0 ? 'positive' : 'negative';
+              return `
+                <div class="etf-subsection">
+                  <div class="etf-subsection-header">
+                    <span class="etf-subsection-title">🏦 Bilan total depuis le début (${cumul.nAnnees} année${cumul.nAnnees > 1 ? 's' : ''})</span>
+                  </div>
+                  <div class="bilan-total-grid">
+                    <div class="bilan-total-item">
+                      <div class="bilan-total-label">Loyers perçus</div>
+                      <div class="bilan-total-value positive">+${fmtCHF(cumul.loyers)}</div>
+                    </div>
+                    <div class="bilan-total-item">
+                      <div class="bilan-total-label">Charges cumulées</div>
+                      <div class="bilan-total-value negative">−${fmtCHF(cumul.charges)}</div>
+                    </div>
+                    <div class="bilan-total-item">
+                      <div class="bilan-total-label">Intérêts payés</div>
+                      <div class="bilan-total-value negative">−${fmtCHF(cumul.interets)}</div>
+                    </div>
+                    <div class="bilan-total-item">
+                      <div class="bilan-total-label">Amort remboursé</div>
+                      <div class="bilan-total-value positive">+${fmtCHF(cumul.amort)}</div>
+                      <div class="bilan-total-detail">→ équité construite</div>
+                    </div>
+                    <div class="bilan-total-item">
+                      <div class="bilan-total-label">Plus-value latente</div>
+                      <div class="bilan-total-value ${cumul.plusValueLatente >= 0 ? 'positive' : 'negative'}">${cumul.plusValueLatente >= 0 ? '+' : '−'}${fmtCHF(Math.abs(cumul.plusValueLatente))}</div>
+                    </div>
+                    <div class="bilan-total-item">
+                      <div class="bilan-total-label">Cash-flow net cumulé</div>
+                      <div class="bilan-total-value ${cumul.cashFlowCumule >= 0 ? 'positive' : 'negative'}">${cumul.cashFlowCumule >= 0 ? '+' : '−'}${fmtCHF(Math.abs(cumul.cashFlowCumule))}</div>
+                      <div class="bilan-total-detail">cash effectivement reçu</div>
+                    </div>
+                  </div>
+                  <div class="bilan-total-hero ${heroCls}">
+                    <span class="bilan-total-hero-label">Bilan économique total</span>
+                    <span class="bilan-total-hero-value">${cumul.bilanEconomique >= 0 ? '+' : '−'}${fmtCHF(Math.abs(cumul.bilanEconomique))}</span>
+                  </div>
                 </div>
               `;
             })()}
