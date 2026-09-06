@@ -647,6 +647,57 @@
 
     /* Comparison card dashboard */
     .comparison-card { background: white; }
+    .comparison-baseline {
+      padding: 14px 0;
+      margin-bottom: 20px;
+      border-bottom: 1.5px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .comparison-block {
+      padding: 22px 24px;
+      background: var(--bg);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-soft);
+    }
+    .comparison-block-title {
+      font-size: 13px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+    .comparison-block-rate {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 10px 0;
+      font-size: 15px;
+      color: var(--text-muted);
+    }
+    .comparison-block-spread {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding-top: 14px;
+      margin-top: 8px;
+      border-top: 1.5px solid var(--border);
+      font-size: 15px;
+      font-weight: 600;
+    }
+    @media (max-width: 900px) {
+      .comparison-grid { grid-template-columns: 1fr; }
+    }
     .comparison-row {
       display: flex;
       justify-content: space-between;
@@ -890,20 +941,37 @@
         </div>
 
         <div class="card comparison-card" id="comparison-card" style="display:none">
-          <h2>📊 Rendement Bourse vs Coût du prêt</h2>
-          <div class="comparison-row">
-            <span>Rendement Bourse annualisé</span>
-            <span class="rate-value" id="cmp-bourse">—</span>
-          </div>
-          <div class="comparison-row">
+          <h2>📊 Rendement des poches vs Coût du prêt</h2>
+          <div class="comparison-baseline">
             <span>Coût du prêt (taux moyen)</span>
             <span class="rate-value negative" id="cmp-pret">—</span>
           </div>
-          <div class="comparison-row total">
-            <span>Écart net (spread)</span>
-            <span class="rate-value big" id="cmp-ecart">—</span>
+          <div class="comparison-grid">
+            <div class="comparison-block" id="cmp-block-bourse" style="display:none">
+              <div class="comparison-block-title">📈 Bourse</div>
+              <div class="comparison-block-rate">
+                <span>Rendement annualisé</span>
+                <span class="rate-value" id="cmp-bourse">—</span>
+              </div>
+              <div class="comparison-block-spread">
+                <span>Écart net</span>
+                <span class="rate-value big" id="cmp-bourse-ecart">—</span>
+              </div>
+              <div id="cmp-bourse-verdict"></div>
+            </div>
+            <div class="comparison-block" id="cmp-block-immo" style="display:none">
+              <div class="comparison-block-title">🏠 Immo</div>
+              <div class="comparison-block-rate">
+                <span>Rendement locatif net</span>
+                <span class="rate-value" id="cmp-immo">—</span>
+              </div>
+              <div class="comparison-block-spread">
+                <span>Écart net</span>
+                <span class="rate-value big" id="cmp-immo-ecart">—</span>
+              </div>
+              <div id="cmp-immo-verdict"></div>
+            </div>
           </div>
-          <div id="cmp-verdict"></div>
         </div>
 
         <div class="card">
@@ -1557,6 +1625,19 @@
       return computeXIRR(all);
     }
 
+    // Rendement locatif net agrégé de la poche Immo (moyenne pondérée par prix d'achat)
+    function pocheImmoRendementLocatifNet() {
+      let totalNet = 0;
+      let totalPrix = 0;
+      data.biens.forEach(b => {
+        const loyer = b.loyerMensuel || 0;
+        const ch = Object.values(b.charges || {}).reduce((s, c) => s + (c || 0), 0);
+        totalNet += (loyer - ch) * 12;
+        totalPrix += b.prixAchat || 0;
+      });
+      return totalPrix > 0 ? (totalNet / totalPrix) * 100 : null;
+    }
+
     function pocheCashMontant() {
       // Cash = prêt effectif (après amortissements cumulés) - immo - bourse
       return Math.max(0, pretMontantEffectif() - pocheImmoMontant() - pocheEtfMontant());
@@ -1686,28 +1767,60 @@
         `;
       }).join('');
 
-      // Carte comparaison Bourse vs Coût du prêt
+      // Carte comparaison — Bourse et Immo vs Coût du prêt
       const cmpCard = document.getElementById('comparison-card');
       const rendBourse = pocheBourseXIRR();
+      const rendImmo = pocheImmoRendementLocatifNet();
       const tauxPret = tauxMoyenPondere();
-      if (rendBourse != null && data.pret.tranches.length > 0) {
+      const hasBourse = rendBourse != null;
+      const hasImmo = rendImmo != null;
+      const hasAny = (hasBourse || hasImmo) && data.pret.tranches.length > 0;
+
+      if (hasAny) {
         cmpCard.style.display = 'block';
-        const rendPct = rendBourse * 100;
-        const spread = rendPct - tauxPret;
-        const bEl = document.getElementById('cmp-bourse');
-        bEl.textContent = (rendPct >= 0 ? '+' : '') + fmtPct(rendPct);
-        bEl.className = 'rate-value ' + (rendPct >= 0 ? 'positive' : 'negative');
         document.getElementById('cmp-pret').textContent = '−' + fmtPct(tauxPret);
-        const eEl = document.getElementById('cmp-ecart');
-        eEl.textContent = (spread >= 0 ? '+' : '') + fmtPct(spread);
-        eEl.className = 'rate-value big ' + (spread >= 0 ? 'positive' : 'negative');
-        const verdict = document.getElementById('cmp-verdict');
-        if (spread >= 0) {
-          verdict.className = 'verdict-banner ok';
-          verdict.textContent = '✓ La bourse bat ton coût de financement : tu crées de la valeur avec l\'effet de levier.';
+
+        // Bloc Bourse
+        const blockBourse = document.getElementById('cmp-block-bourse');
+        if (hasBourse) {
+          blockBourse.style.display = 'block';
+          const rendPct = rendBourse * 100;
+          const spread = rendPct - tauxPret;
+          const bEl = document.getElementById('cmp-bourse');
+          bEl.textContent = (rendPct >= 0 ? '+' : '') + fmtPct(rendPct);
+          bEl.className = 'rate-value ' + (rendPct >= 0 ? 'positive' : 'negative');
+          const eEl = document.getElementById('cmp-bourse-ecart');
+          eEl.textContent = (spread >= 0 ? '+' : '') + fmtPct(spread);
+          eEl.className = 'rate-value big ' + (spread >= 0 ? 'positive' : 'negative');
+          const vEl = document.getElementById('cmp-bourse-verdict');
+          vEl.className = 'verdict-banner ' + (spread >= 0 ? 'ok' : 'err');
+          vEl.style.marginTop = '14px';
+          vEl.textContent = spread >= 0
+            ? '✓ La bourse bat ton coût de financement.'
+            : '⚠ La bourse ne couvre pas ton coût de financement.';
         } else {
-          verdict.className = 'verdict-banner err';
-          verdict.textContent = '⚠ La bourse ne couvre pas ton coût de financement : chaque CHF investi te fait perdre à ce rythme.';
+          blockBourse.style.display = 'none';
+        }
+
+        // Bloc Immo
+        const blockImmo = document.getElementById('cmp-block-immo');
+        if (hasImmo) {
+          blockImmo.style.display = 'block';
+          const spread = rendImmo - tauxPret;
+          const iEl = document.getElementById('cmp-immo');
+          iEl.textContent = (rendImmo >= 0 ? '+' : '') + fmtPct(rendImmo);
+          iEl.className = 'rate-value ' + (rendImmo >= 0 ? 'positive' : 'negative');
+          const eEl = document.getElementById('cmp-immo-ecart');
+          eEl.textContent = (spread >= 0 ? '+' : '') + fmtPct(spread);
+          eEl.className = 'rate-value big ' + (spread >= 0 ? 'positive' : 'negative');
+          const vEl = document.getElementById('cmp-immo-verdict');
+          vEl.className = 'verdict-banner ' + (spread >= 0 ? 'ok' : 'err');
+          vEl.style.marginTop = '14px';
+          vEl.textContent = spread >= 0
+            ? '✓ L\'immo bat ton coût de financement.'
+            : '⚠ L\'immo ne couvre pas ton coût de financement.';
+        } else {
+          blockImmo.style.display = 'none';
         }
       } else {
         cmpCard.style.display = 'none';
@@ -2643,6 +2756,8 @@
       // Rendements calculés sur le prix d'achat (métrique historique standard)
       const rendementBrut = prixAchat > 0 ? (loyerMensuel * 12 / prixAchat) * 100 : 0;
       const rendementLocatifNet = prixAchat > 0 ? (cashFlowMensuelBrut * 12 / prixAchat) * 100 : 0;
+      // Après intérêts mais AVANT amortissement (l'amort n'est pas une perte, c'est de l'équity)
+      const rendementApresInterets = prixAchat > 0 ? ((cashFlowMensuelBrut - interetsAlloues) * 12 / prixAchat) * 100 : 0;
       const rendementNet = prixAchat > 0 ? (cashFlowAnnuelNet / prixAchat) * 100 : 0;
 
       return {
@@ -2650,7 +2765,7 @@
         detteBien, interetsAlloues, partCapital,
         cashFlowMensuelBrut, cashFlowMensuelNet, cashFlowAnnuelNet,
         plusValueLatente, plusValuePct,
-        rendementBrut, rendementLocatifNet, rendementNet
+        rendementBrut, rendementLocatifNet, rendementApresInterets, rendementNet
       };
     }
 
@@ -2745,8 +2860,12 @@
                   <span class="text-mono">${s.rendementLocatifNet >= 0 ? '+' : ''}${fmtPct(s.rendementLocatifNet)} / an</span>
                 </div>
                 ${spreadRow}
-                <div class="bilan-row bilan-secondary ${rendementCashCls}" style="margin-top:8px;">
-                  <span>Cash-flow après financement</span>
+                <div class="bilan-row bilan-secondary ${s.rendementApresInterets >= 0 ? 'positive' : 'negative'}" style="margin-top:8px;">
+                  <span>Après intérêts <span style="opacity:0.7;">(vrai gain économique)</span></span>
+                  <span class="text-mono">${s.rendementApresInterets >= 0 ? '+' : ''}${fmtPct(s.rendementApresInterets)} / an</span>
+                </div>
+                <div class="bilan-row bilan-secondary ${rendementCashCls}">
+                  <span>Cash-flow après financement <span style="opacity:0.7;">(après amort)</span></span>
                   <span class="text-mono">${s.rendementNet >= 0 ? '+' : ''}${fmtPct(s.rendementNet)} / an</span>
                 </div>
               </div>
