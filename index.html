@@ -867,6 +867,7 @@
           <div class="stat">
             <div class="stat-label">Capital total</div>
             <div class="stat-value text-mono" id="stat-capital">—</div>
+            <div id="stat-capital-note" style="display:none;font-size:12px;color:var(--text-muted);margin-top:6px;"></div>
           </div>
           <div class="stat">
             <div class="stat-label">Taux moyen</div>
@@ -1472,8 +1473,15 @@
       return data.pret.tranches.reduce((s, t) => s + (t.montant || 0) * trancheInterestRate(t), 0) / total;
     }
 
+    // Dette effective d'un bien = prix d'achat - amortissement propre au bien
+    function bienEffectiveLoan(bien) {
+      const amortBien = (bien.annuals || []).reduce((s, a) => s + (a.amortissement || 0), 0);
+      return Math.max(0, (bien.prixAchat || 0) - amortBien);
+    }
+
     function pocheImmoMontant() {
-      return data.biens.reduce((s, b) => s + (b.prixAchat || 0), 0);
+      // Somme des dettes effectives des biens (prix d'achat − amortissements propres)
+      return data.biens.reduce((s, b) => s + bienEffectiveLoan(b), 0);
     }
 
     function pocheEtfMontant() {
@@ -1550,8 +1558,14 @@
     }
 
     function pocheCashMontant() {
+      // Cash = prêt effectif (après amortissements cumulés) - immo - bourse
+      return Math.max(0, pretMontantEffectif() - pocheImmoMontant() - pocheEtfMontant());
+    }
+
+    // Montant du prêt effectif = initial - amortissement cumulé
+    function pretMontantEffectif() {
       const total = data.pret.montantTotal || 0;
-      return Math.max(0, total - pocheImmoMontant() - pocheEtfMontant());
+      return Math.max(0, total - amortissementCumuleTotal());
     }
 
     // ==== NAVIGATION ====
@@ -1577,10 +1591,22 @@
       document.getElementById('dashboard-content').style.display = hasPret ? 'block' : 'none';
       if (!hasPret) return;
 
-      const capital = data.pret.montantTotal;
+      const capitalInitial = data.pret.montantTotal;
+      const cumulAmort = amortissementCumuleTotal();
+      const capital = Math.max(0, capitalInitial - cumulAmort);
       const interetsMois = totalInterestMonthly();
 
-      document.getElementById('stat-capital').textContent = fmtCHF(capital);
+      const capEl = document.getElementById('stat-capital');
+      capEl.textContent = fmtCHF(capital);
+      // Sub-note pour montrer l'amortissement cumulé quand > 0
+      const capNoteEl = document.getElementById('stat-capital-note');
+      if (cumulAmort > 0) {
+        capNoteEl.style.display = 'block';
+        capNoteEl.innerHTML = `initial : ${fmtCHF(capitalInitial)} · <span style="color:var(--success-dark);font-weight:600;">−${fmtCHF(cumulAmort)} remboursé</span>`;
+      } else {
+        capNoteEl.style.display = 'none';
+      }
+
       document.getElementById('stat-taux').textContent = fmtPct(tauxMoyenPondere());
       document.getElementById('stat-interets').textContent = '−' + fmtCHF(interetsMois);
 
@@ -2592,7 +2618,6 @@
     let editingBienId = null;
 
     function computeBienStats(bien) {
-      const capital = data.pret.montantTotal || 0;
       const interetsTotal = totalInterestMonthly();
       const prixAchat = bien.prixAchat || 0;
       const valeurActuelle = bien.valeurActuelle || prixAchat;
@@ -2600,8 +2625,12 @@
       const chargesTotal = Object.values(bien.charges || {}).reduce((s, c) => s + (c || 0), 0);
       const amortissement = bien.amortissement || 0;
 
-      // Coût intérêts alloué à ce bien (proportionnel à sa part du capital)
-      const partCapital = capital > 0 ? prixAchat / capital : 0;
+      // Dette effective de CE bien (prix d'achat − amortissements historiques du bien)
+      const detteBien = bienEffectiveLoan(bien);
+      // Prêt effectif global
+      const pretEffectif = pretMontantEffectif();
+      // Part du bien dans le prêt effectif (allocation d'intérêts correcte)
+      const partCapital = pretEffectif > 0 ? detteBien / pretEffectif : 0;
       const interetsAlloues = interetsTotal * partCapital;
 
       const cashFlowMensuelBrut = loyerMensuel - chargesTotal;
@@ -2611,15 +2640,14 @@
       const plusValueLatente = valeurActuelle - prixAchat;
       const plusValuePct = prixAchat > 0 ? (plusValueLatente / prixAchat) * 100 : 0;
 
+      // Rendements calculés sur le prix d'achat (métrique historique standard)
       const rendementBrut = prixAchat > 0 ? (loyerMensuel * 12 / prixAchat) * 100 : 0;
-      // Rendement locatif net = (loyer - charges) × 12 / prix — avant financement (standard immo)
       const rendementLocatifNet = prixAchat > 0 ? (cashFlowMensuelBrut * 12 / prixAchat) * 100 : 0;
-      // Rendement cash-flow réel = cash-flow annuel net (après intérêts + amortissement) / prix
       const rendementNet = prixAchat > 0 ? (cashFlowAnnuelNet / prixAchat) * 100 : 0;
 
       return {
         prixAchat, valeurActuelle, loyerMensuel, chargesTotal, amortissement,
-        interetsAlloues, partCapital,
+        detteBien, interetsAlloues, partCapital,
         cashFlowMensuelBrut, cashFlowMensuelNet, cashFlowAnnuelNet,
         plusValueLatente, plusValuePct,
         rendementBrut, rendementLocatifNet, rendementNet
@@ -2699,6 +2727,11 @@
                   <span>Prix d'achat</span>
                   <span class="text-mono">${fmtCHF(s.prixAchat)}</span>
                 </div>
+                ${Math.abs(s.detteBien - s.prixAchat) > 0.5 ? `
+                <div class="bilan-row bilan-secondary" style="color:var(--success-dark);">
+                  <span>Dette restante (après amort)</span>
+                  <span class="text-mono">${fmtCHF(s.detteBien)}</span>
+                </div>` : ''}
                 <div class="bilan-row">
                   <span>Valeur aujourd'hui</span>
                   <span class="text-mono">${fmtCHF(s.valeurActuelle)}</span>
