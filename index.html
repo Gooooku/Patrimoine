@@ -2396,6 +2396,8 @@
 
         // Ancien bandeau spread supprimé (fusionné dans le Bilan)
         let spreadHtml = '';
+        // tauxPret utilisé plus bas pour la colonne "vs Prêt" du tableau Performance par année
+        const tauxPret = tauxMoyenPondere();
 
         // Performance annuelle depuis l'historique importé
         const annual = computeAnnualPerformance(etf);
