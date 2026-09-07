@@ -635,6 +635,18 @@
     .mouvement-detail { color: var(--text); }
     .mouvement-frais { color: var(--text-subtle); font-size: 14px; }
     .mouvement-total { font-weight: 700; }
+    .mouvement-right {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    .mouvement-return {
+      font-size: 14px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .mouvement-return.positive { color: var(--success-dark); }
+    .mouvement-return.negative { color: var(--danger-dark); }
 
     .empty-inline {
       text-align: center;
@@ -2362,29 +2374,6 @@
           ? `<div class="bilan-row"><span>Dividendes reçus</span><span class="text-mono positive">+${fmtCHF2(s.dividendes)}</span></div>`
           : '';
 
-        const rendementRow = s.rendementAnnualise != null
-          ? `<div class="bilan-row bilan-rendement ${s.rendementAnnualise >= 0 ? 'positive' : 'negative'}">
-              <span>Rendement annualisé</span>
-              <span class="text-mono">${s.rendementAnnualise >= 0 ? '+' : ''}${fmtPct(s.rendementAnnualise * 100)} / an</span>
-            </div>`
-          : '';
-
-        // Ligne spread vs coût du prêt, intégrée au Bilan
-        const tauxPret = tauxMoyenPondere();
-        let spreadRow = '';
-        if (s.rendementAnnualise != null && data.pret.tranches.length > 0) {
-          const rendPct = s.rendementAnnualise * 100;
-          const spread = rendPct - tauxPret;
-          const sCls = spread >= 0 ? 'positive' : 'negative';
-          const verb = spread >= 0 ? 'bat le prêt de' : 'sous le prêt de';
-          spreadRow = `
-            <div class="bilan-row bilan-spread ${sCls}">
-              <span>${verb} <strong>${spread >= 0 ? '+' : ''}${fmtPct(spread)}</strong></span>
-              <span>Coût prêt : ${fmtPct(tauxPret)}</span>
-            </div>
-          `;
-        }
-
         const bilanHtml = investi > 0 || gainTotal !== 0 ? `
           <div class="etf-bilan ${bilanCls}">
             <div class="bilan-title">💰 Bilan</div>
@@ -2402,8 +2391,6 @@
               <span>Gain total</span>
               <span class="text-mono">${gainSign}${fmtCHF2(Math.abs(gainTotal))}${pctStr}</span>
             </div>
-            ${rendementRow}
-            ${spreadRow}
           </div>
         ` : '';
 
@@ -2487,6 +2474,15 @@
               const total = m.type === 'achat'
                 ? (m.quantite || 0) * (m.prix || 0) + (m.frais || 0)
                 : (m.quantite || 0) * (m.prix || 0) - (m.frais || 0);
+              // Rendement de cet achat par rapport au prix actuel (uniquement pour achats)
+              let returnBadge = '';
+              if (m.type === 'achat' && (m.quantite || 0) > 0 && (etf.valeurActuelle || 0) > 0) {
+                const costPerShare = ((m.quantite || 0) * (m.prix || 0) + (m.frais || 0)) / (m.quantite || 0);
+                const returnPct = ((etf.valeurActuelle - costPerShare) / costPerShare) * 100;
+                const cls = returnPct >= 0 ? 'positive' : 'negative';
+                const sign = returnPct >= 0 ? '+' : '';
+                returnBadge = `<span class="mouvement-return ${cls}">${sign}${fmtPct(returnPct)}</span>`;
+              }
               return `
                 <div class="mouvement" onclick="openMouvementModal('${etf.id}', '${m.id}')">
                   <div>
@@ -2495,7 +2491,10 @@
                     <span class="mouvement-detail">${(m.quantite || 0).toFixed(2)} × ${fmtCHF2(m.prix || 0)}</span>
                     ${(m.frais || 0) > 0 ? `<span class="mouvement-frais"> · frais ${fmtCHF2(m.frais)}</span>` : ''}
                   </div>
-                  <span class="mouvement-total text-mono">${m.type === 'achat' ? '−' : '+'}${fmtCHF2(total)}</span>
+                  <div class="mouvement-right">
+                    ${returnBadge}
+                    <span class="mouvement-total text-mono">${m.type === 'achat' ? '−' : '+'}${fmtCHF2(total)}</span>
+                  </div>
                 </div>
               `;
             }).join('')
