@@ -838,6 +838,56 @@
       font-size: 13px;
     }
 
+    /* Crypto cards (accent ambre/gold) */
+    .crypto-card {
+      background: white;
+      border-radius: var(--radius-md);
+      padding: 32px;
+      margin-bottom: 22px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--border-soft);
+      border-top: 4px solid var(--warning);
+    }
+    .crypto-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      gap: 18px;
+    }
+    .crypto-title h3 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      letter-spacing: -0.01em;
+    }
+    .crypto-subtitle {
+      font-size: 14px;
+      color: var(--text-muted);
+    }
+    .crypto-decomp {
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      margin-top: 16px;
+    }
+    .crypto-decomp-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 8px 0;
+      font-size: 15px;
+    }
+    .crypto-decomp-row.total {
+      border-top: 1.5px solid var(--border);
+      margin-top: 6px;
+      padding-top: 14px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .crypto-decomp-row.total.positive { color: var(--success-dark); }
+    .crypto-decomp-row.total.negative { color: var(--danger-dark); }
+
     /* Bien cards (immo) — hérite de etf-card avec accent bleu */
     .bien-card {
       background: white;
@@ -960,6 +1010,7 @@
     <button class="tab-btn" data-screen="pret">Prêt</button>
     <button class="tab-btn" data-screen="biens">Biens</button>
     <button class="tab-btn" data-screen="etf">Bourse</button>
+    <button class="tab-btn" data-screen="crypto">Crypto</button>
   </nav>
 
   <main>
@@ -1068,6 +1119,22 @@
       <div id="etfs-list"></div>
       <button class="btn mt-16" onclick="openEtfModal()">+ Nouvel ETF</button>
     </div>
+
+    <!-- CRYPTO -->
+    <div class="screen" id="screen-crypto">
+      <div class="card" id="fx-card" style="display:none">
+        <h2>💱 Taux de change</h2>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+          <div>
+            <div style="font-size:32px;font-weight:700;letter-spacing:-0.02em;" class="text-mono" id="fx-rate-display">—</div>
+            <div style="font-size:14px;color:var(--text-muted);margin-top:4px;" id="fx-rate-date">Jamais actualisé</div>
+          </div>
+          <button class="btn-icon primary" onclick="refreshFxRate()">🔄 Actualiser</button>
+        </div>
+      </div>
+      <div id="cryptos-list"></div>
+      <button class="btn mt-16" onclick="openCryptoModal()">+ Nouveau protocol</button>
+    </div>
   </main>
 
   <!-- Modal Tranche -->
@@ -1172,6 +1239,72 @@
         <button class="btn btn-secondary" onclick="closeEtfModal()">Annuler</button>
         <button class="btn btn-danger" id="btn-delete-etf" onclick="deleteEtf()" style="display:none">Supprimer</button>
         <button class="btn" onclick="saveEtf()">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Crypto -->
+  <div class="modal-overlay" id="modal-crypto">
+    <div class="modal" style="max-width:640px;">
+      <h2 id="modal-crypto-title">Nouveau protocol crypto</h2>
+
+      <div class="form-row">
+        <label>Nom / Description</label>
+        <input type="text" id="crypto-nom" placeholder="Ex: USDC lending Aave">
+      </div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Protocol (optionnel)</label>
+          <input type="text" id="crypto-protocol" placeholder="Ex: Aave, Compound, Ethena">
+        </div>
+        <div class="form-row">
+          <label>Devise</label>
+          <input type="text" id="crypto-devise" value="USD" placeholder="USD">
+        </div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px;">Investissement initial</div>
+
+      <div class="form-row">
+        <label>Date d'achat</label>
+        <input type="date" id="crypto-date-achat">
+      </div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Montant CHF investi</label>
+          <input type="number" id="crypto-investi-chf" step="100" inputmode="decimal" placeholder="10000">
+        </div>
+        <div class="form-row">
+          <label>Montant reçu en devise</label>
+          <input type="number" id="crypto-investi-devise" step="0.01" inputmode="decimal" placeholder="11111">
+        </div>
+      </div>
+      <div class="settings-help" style="margin-top:-10px;margin-bottom:16px;">
+        Le taux d'achat est déduit du ratio CHF/devise (ex: 10'000 CHF / 11'111 USD = 0.90).
+      </div>
+
+      <div class="section-title" style="margin-top:20px;">État actuel</div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Balance actuelle en devise</label>
+          <input type="number" id="crypto-balance" step="0.01" inputmode="decimal">
+        </div>
+        <div class="form-row">
+          <label>Date de la valeur</label>
+          <input type="date" id="crypto-date-balance">
+        </div>
+      </div>
+      <div class="settings-help" style="margin-top:-10px;">
+        Mets à jour la balance quand tu veux enregistrer un nouveau montant (yields cumulés compris).
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="closeCryptoModal()">Annuler</button>
+        <button class="btn btn-danger" id="btn-delete-crypto" onclick="deleteCrypto()" style="display:none">Supprimer</button>
+        <button class="btn" onclick="saveCrypto()">Enregistrer</button>
       </div>
     </div>
   </div>
@@ -1452,7 +1585,8 @@
         tranches: []
       },
       biens: [],
-      etfs: []
+      etfs: [],
+      cryptos: []
     };
 
     let data = loadData();
@@ -1941,6 +2075,7 @@
       if (name === 'pret') renderPret();
       if (name === 'biens') renderBiens();
       if (name === 'etf') renderEtfs();
+      if (name === 'crypto') renderCryptos();
     }
 
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -2409,8 +2544,10 @@
             if (a.isCurrentYear) trClasses.push('ytd');
             if (a.note) trClasses.push('short');
             const trCls = trClasses.join(' ');
-            const marketPrefix = a.marketReturnPct >= 0 ? '+' : '';
-            const marketCell = `<td class="market">${marketPrefix}${fmtPct(a.marketReturnPct)}</td>`;
+            // Cellule Marché — "—" si pas d'history pour cette année
+            const marketCell = a.marketReturnPct != null
+              ? `<td class="market">${a.marketReturnPct >= 0 ? '+' : ''}${fmtPct(a.marketReturnPct)}</td>`
+              : '<td class="market">—</td>';
 
             let userCell = '<td>—</td>';
             let spreadCell = '<td>—</td>';
@@ -2429,7 +2566,7 @@
 
             return `
               <tr class="${trCls}">
-                <td>${a.year}</td>
+                <td>${a.year}${!a.hasHistory ? ' <span style="font-size:11px;color:var(--text-subtle);">(sans history)</span>' : ''}</td>
                 ${marketCell}
                 ${userCell}
                 ${spreadCell}
@@ -2915,13 +3052,29 @@
 
     // Calcul du rendement par année civile : marché + personnel (XIRR restreint à l'année)
     function computeAnnualPerformance(etf) {
-      if (!etf.history || etf.history.length < 2) return [];
       const byYear = {};
-      etf.history.forEach(h => {
+      (etf.history || []).forEach(h => {
         const year = h.date.slice(0, 4);
         if (!byYear[year]) byYear[year] = [];
         byYear[year].push(h);
       });
+
+      // Ajout des années qui ont de l'activité (mouvements/dividendes), même sans history
+      (etf.mouvements || []).forEach(m => {
+        if (m.date) {
+          const y = m.date.slice(0, 4);
+          if (!byYear[y]) byYear[y] = [];
+        }
+      });
+      (etf.dividendes || []).forEach(d => {
+        if (d.date) {
+          const y = d.date.slice(0, 4);
+          if (!byYear[y]) byYear[y] = [];
+        }
+      });
+
+      if (Object.keys(byYear).length === 0) return [];
+
       const years = Object.keys(byYear).sort();
       const currentYear = String(new Date().getFullYear());
       const today = new Date().toISOString().slice(0, 10);
@@ -2930,16 +3083,22 @@
       for (let i = 0; i < years.length; i++) {
         const year = years[i];
         const points = byYear[year];
-        let startPrice;
-        if (i > 0) {
-          const prev = byYear[years[i - 1]];
-          startPrice = prev[prev.length - 1].close;
-        } else {
-          startPrice = points[0].close;
+        const hasHistory = points.length > 0;
+
+        // Prix de début et fin d'année (si history dispo)
+        let startPrice = null, endPrice = null, marketReturnPct = null;
+        if (hasHistory) {
+          // Cherche le dernier point avec history AVANT l'année courante
+          let prevPoints = null;
+          for (let j = i - 1; j >= 0; j--) {
+            if (byYear[years[j]].length > 0) { prevPoints = byYear[years[j]]; break; }
+          }
+          startPrice = prevPoints ? prevPoints[prevPoints.length - 1].close : points[0].close;
+          endPrice = points[points.length - 1].close;
+          if (startPrice && endPrice) {
+            marketReturnPct = ((endPrice / startPrice) - 1) * 100;
+          }
         }
-        const endPrice = points[points.length - 1].close;
-        if (!startPrice || !endPrice) continue;
-        const marketReturnPct = ((endPrice / startPrice) - 1) * 100;
 
         const isCurrentYear = year === currentYear;
         const yearStartDate = year + '-01-01';
@@ -2964,7 +3123,6 @@
           return dd >= yearStartDate && dd <= yearEndDate;
         });
 
-        // Quantité à la fin de l'année
         let qtyEnd = qtyStart;
         mouvIn.forEach(m => {
           const q = m.quantite || 0;
@@ -2972,16 +3130,16 @@
           else if (m.type === 'vente') qtyEnd = Math.max(0, qtyEnd - q);
         });
 
-        // Prix fin d'année pour le calcul user (valeur actuelle si année en cours)
         const endPriceUser = isCurrentYear ? (etf.valeurActuelle || endPrice) : endPrice;
 
         let userReturnPct = null;
         let note = null;
 
-        // Si aucune position ni mouvement, pas de rendement perso
-        if (qtyStart === 0 && mouvIn.length === 0 && divIn.length === 0) {
-          userReturnPct = null;
-        } else {
+        // Le calcul XIRR user nécessite des prix (start et/ou end)
+        const hasActivity = qtyStart > 0 || mouvIn.length > 0 || divIn.length > 0;
+        const canComputeUser = hasActivity && ((startPrice && qtyStart > 0) || mouvIn.length > 0) && (endPriceUser || qtyEnd === 0);
+
+        if (canComputeUser) {
           const flows = [];
           if (qtyStart > 0 && startPrice > 0) {
             flows.push({ date: yearStartDate, amount: -qtyStart * startPrice });
@@ -2998,7 +3156,6 @@
           const xirr = computeXIRR(flows);
           userReturnPct = xirr != null ? xirr * 100 : null;
 
-          // Marquer d'un astérisque si la période effective est courte
           if (userReturnPct != null) {
             const firstMoment = qtyStart > 0
               ? yearStartDate
@@ -3010,6 +3167,7 @@
 
         result.push({
           year,
+          hasHistory,
           startPrice,
           endPrice,
           marketReturnPct,
@@ -3564,6 +3722,246 @@
       closeAnnualModal();
       renderBiens();
       toast('Bilan supprimé');
+    }
+
+    // ==== CRYPTO ====
+    let editingCryptoId = null;
+
+    async function refreshFxRate() {
+      const base = proxyUrl();
+      if (!base) {
+        alert('URL du proxy non configurée. Ouvre ⚙️ Paramètres pour la définir.');
+        return;
+      }
+      try {
+        toast('Récupération du taux USD/CHF...');
+        const q = await fetchQuoteData('USDCHF=X', '1d', '1d');
+        if (q.price == null) throw new Error('Taux non disponible');
+        if (!data.settings) data.settings = {};
+        if (!data.settings.fxRates) data.settings.fxRates = {};
+        data.settings.fxRates.USD = {
+          rate: q.price,
+          date: new Date().toISOString().slice(0, 10)
+        };
+        saveData();
+        renderCryptos();
+        toast('Taux USD/CHF actualisé : ' + q.price.toFixed(4));
+      } catch (e) {
+        alert('Erreur : ' + e.message);
+      }
+    }
+
+    function getFxRate(devise) {
+      if (devise === 'CHF') return 1;
+      const fx = data.settings && data.settings.fxRates && data.settings.fxRates[devise];
+      return fx ? fx.rate : 0;
+    }
+
+    function computeCryptoStats(crypto) {
+      const devise = crypto.devise || 'USD';
+      const investiCHF = crypto.investiCHF || 0;
+      const investiDevise = crypto.investiDevise || 0;
+      const balance = crypto.balanceDevise || 0;
+      const rateActuel = getFxRate(devise);
+      const tauxAchat = investiDevise > 0 ? investiCHF / investiDevise : 0;
+
+      const valeurActuelleCHF = balance * rateActuel;
+      const rendementDevise = balance - investiDevise;
+      const rendementDevisePct = investiDevise > 0 ? (rendementDevise / investiDevise) * 100 : 0;
+
+      // Décomposition : gain yield (au taux d'achat) + impact FX
+      const gainYieldCHF = rendementDevise * tauxAchat;
+      const impactFX = balance * (rateActuel - tauxAchat);
+      const gainCHF = valeurActuelleCHF - investiCHF;
+      const gainCHFPct = investiCHF > 0 ? (gainCHF / investiCHF) * 100 : 0;
+
+      return {
+        devise, investiCHF, investiDevise, balance,
+        rateActuel, tauxAchat,
+        valeurActuelleCHF, gainCHF, gainCHFPct,
+        rendementDevise, rendementDevisePct,
+        gainYieldCHF, impactFX
+      };
+    }
+
+    function renderCryptos() {
+      // FX card display
+      const fxCard = document.getElementById('fx-card');
+      const rate = getFxRate('USD');
+      const fxData = data.settings && data.settings.fxRates && data.settings.fxRates.USD;
+      fxCard.style.display = 'block';
+      if (rate > 0) {
+        document.getElementById('fx-rate-display').textContent = '1 USD = ' + rate.toFixed(4) + ' CHF';
+        document.getElementById('fx-rate-date').textContent = fxData && fxData.date ? 'Actualisé le ' + formatDate(fxData.date) : 'Actualisé récemment';
+      } else {
+        document.getElementById('fx-rate-display').textContent = 'Taux non défini';
+        document.getElementById('fx-rate-date').textContent = 'Clique sur Actualiser pour récupérer le taux';
+      }
+
+      const list = document.getElementById('cryptos-list');
+      if (data.cryptos.length === 0) {
+        list.innerHTML = '<div class="empty-state"><p style="font-size:18px;">💰 Aucun protocol crypto</p><p>Ajoute une position pour suivre tes yields et l\'impact du change USD/CHF.</p></div>';
+        return;
+      }
+
+      list.innerHTML = data.cryptos.map(c => {
+        const s = computeCryptoStats(c);
+        const bilanCls = s.gainCHF >= 0 ? 'positive' : 'negative';
+        const yieldCls = s.gainYieldCHF >= 0 ? 'positive' : 'negative';
+        const fxCls = s.impactFX >= 0 ? 'positive' : 'negative';
+        const rendCls = s.rendementDevise >= 0 ? 'positive' : 'negative';
+        const noRateWarning = s.rateActuel === 0
+          ? '<div class="empty-inline" style="margin-top:12px;">⚠ Taux de change non défini. Utilise le bouton "🔄 Actualiser" en haut pour récupérer le taux ' + s.devise + '/CHF.</div>'
+          : '';
+
+        return `
+          <div class="crypto-card">
+            <div class="crypto-header">
+              <div class="crypto-title">
+                <h3>💰 ${escapeHtml(c.nom || 'Sans nom')}</h3>
+                <div class="crypto-subtitle">${c.protocol ? escapeHtml(c.protocol) + ' · ' : ''}${s.devise} · Acheté le ${formatDate(c.dateAchat) || '—'}</div>
+              </div>
+              <div class="etf-actions">
+                <button class="btn-icon" onclick="openCryptoModal('${c.id}')">Éditer</button>
+              </div>
+            </div>
+
+            <div class="etf-bilan ${bilanCls}" style="margin-bottom:0;">
+              <div class="bilan-title">💰 Bilan</div>
+              <div class="bilan-row">
+                <span>Investi</span>
+                <span class="text-mono">${fmtCHF(s.investiCHF)} <span style="color:var(--text-muted);font-size:14px;">(${s.investiDevise.toFixed(2)} ${s.devise} au taux ${s.tauxAchat.toFixed(4)})</span></span>
+              </div>
+              <div class="bilan-row">
+                <span>Balance actuelle</span>
+                <span class="text-mono">${s.balance.toFixed(2)} ${s.devise}</span>
+              </div>
+              <div class="bilan-row bilan-secondary ${rendCls}">
+                <span>Yield ${s.devise}</span>
+                <span class="text-mono">${s.rendementDevise >= 0 ? '+' : ''}${s.rendementDevise.toFixed(2)} ${s.devise} (${s.rendementDevisePct >= 0 ? '+' : ''}${fmtPct(s.rendementDevisePct)})</span>
+              </div>
+              <div class="bilan-row">
+                <span>Taux ${s.devise}/CHF actuel</span>
+                <span class="text-mono">${s.rateActuel > 0 ? s.rateActuel.toFixed(4) : '—'}</span>
+              </div>
+              <div class="bilan-row">
+                <span>Valeur actuelle en CHF</span>
+                <span class="text-mono">${fmtCHF(s.valeurActuelleCHF)}</span>
+              </div>
+              <div class="bilan-row bilan-gain ${bilanCls}">
+                <span>Gain total CHF</span>
+                <span class="text-mono">${s.gainCHF >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.gainCHF))} (${s.gainCHFPct >= 0 ? '+' : '−'}${fmtPct(Math.abs(s.gainCHFPct))})</span>
+              </div>
+            </div>
+
+            <div class="etf-subsection">
+              <div class="etf-subsection-header">
+                <span class="etf-subsection-title">🔬 Décomposition du gain CHF</span>
+              </div>
+              <div class="crypto-decomp">
+                <div class="crypto-decomp-row">
+                  <span>Yield converti (au taux d'achat)</span>
+                  <span class="text-mono ${yieldCls}">${s.gainYieldCHF >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.gainYieldCHF))}</span>
+                </div>
+                <div class="crypto-decomp-row">
+                  <span>Impact change ${s.devise}/CHF</span>
+                  <span class="text-mono ${fxCls}">${s.impactFX >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.impactFX))}</span>
+                </div>
+                <div class="crypto-decomp-row total ${bilanCls}">
+                  <span>Total</span>
+                  <span class="text-mono">${s.gainCHF >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.gainCHF))}</span>
+                </div>
+              </div>
+              <div class="settings-help" style="margin-top:10px;">
+                Le "Yield converti" représente ce que ton rendement en ${s.devise} vaudrait si le taux de change n'avait pas bougé. L'"Impact change" isole l'effet pur du taux de change.
+              </div>
+            </div>
+            ${noRateWarning}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openCryptoModal(id) {
+      editingCryptoId = id || null;
+      const modal = document.getElementById('modal-crypto');
+      const today = new Date().toISOString().slice(0, 10);
+
+      document.getElementById('crypto-nom').value = '';
+      document.getElementById('crypto-protocol').value = '';
+      document.getElementById('crypto-devise').value = 'USD';
+      document.getElementById('crypto-date-achat').value = today;
+      document.getElementById('crypto-investi-chf').value = '';
+      document.getElementById('crypto-investi-devise').value = '';
+      document.getElementById('crypto-balance').value = '';
+      document.getElementById('crypto-date-balance').value = today;
+      document.getElementById('btn-delete-crypto').style.display = 'none';
+      document.getElementById('modal-crypto-title').textContent = 'Nouveau protocol crypto';
+
+      if (id) {
+        const c = data.cryptos.find(x => x.id === id);
+        if (c) {
+          document.getElementById('modal-crypto-title').textContent = 'Modifier le protocol';
+          document.getElementById('btn-delete-crypto').style.display = 'inline-block';
+          document.getElementById('crypto-nom').value = c.nom || '';
+          document.getElementById('crypto-protocol').value = c.protocol || '';
+          document.getElementById('crypto-devise').value = c.devise || 'USD';
+          document.getElementById('crypto-date-achat').value = c.dateAchat || '';
+          document.getElementById('crypto-investi-chf').value = c.investiCHF || '';
+          document.getElementById('crypto-investi-devise').value = c.investiDevise || '';
+          document.getElementById('crypto-balance').value = c.balanceDevise || '';
+          document.getElementById('crypto-date-balance').value = c.dateBalance || '';
+        }
+      }
+      modal.classList.add('active');
+    }
+
+    function closeCryptoModal() {
+      document.getElementById('modal-crypto').classList.remove('active');
+      editingCryptoId = null;
+    }
+
+    function saveCrypto() {
+      const nom = document.getElementById('crypto-nom').value.trim();
+      const investiCHF = parseFloat(document.getElementById('crypto-investi-chf').value) || 0;
+      const investiDevise = parseFloat(document.getElementById('crypto-investi-devise').value) || 0;
+      if (!nom || investiCHF <= 0 || investiDevise <= 0) {
+        alert('Nom, montant CHF investi et montant reçu en devise requis');
+        return;
+      }
+      const balanceSaisie = parseFloat(document.getElementById('crypto-balance').value);
+      const crypto = {
+        id: editingCryptoId || uid(),
+        nom,
+        protocol: document.getElementById('crypto-protocol').value.trim(),
+        devise: document.getElementById('crypto-devise').value.trim().toUpperCase() || 'USD',
+        dateAchat: document.getElementById('crypto-date-achat').value,
+        investiCHF,
+        investiDevise,
+        balanceDevise: isFinite(balanceSaisie) && balanceSaisie > 0 ? balanceSaisie : investiDevise,
+        dateBalance: document.getElementById('crypto-date-balance').value
+      };
+
+      if (editingCryptoId) {
+        const idx = data.cryptos.findIndex(x => x.id === editingCryptoId);
+        if (idx >= 0) data.cryptos[idx] = crypto;
+      } else {
+        data.cryptos.push(crypto);
+      }
+      saveData();
+      closeCryptoModal();
+      renderCryptos();
+      toast('Position crypto enregistrée');
+    }
+
+    function deleteCrypto() {
+      if (!editingCryptoId) return;
+      if (!confirm('Supprimer cette position crypto ?')) return;
+      data.cryptos = data.cryptos.filter(c => c.id !== editingCryptoId);
+      saveData();
+      closeCryptoModal();
+      renderCryptos();
+      toast('Position supprimée');
     }
 
     // ==== INIT ====
