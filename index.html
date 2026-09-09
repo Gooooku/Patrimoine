@@ -1301,6 +1301,22 @@
         Mets à jour la balance quand tu veux enregistrer un nouveau montant (yields cumulés compris).
       </div>
 
+      <div class="section-title" style="margin-top:20px;">Frais de liquidation estimés (optionnel)</div>
+
+      <div class="form-row-inline">
+        <div class="form-row">
+          <label>Frais en % de la balance</label>
+          <input type="number" id="crypto-frais-pct" step="0.01" inputmode="decimal" placeholder="0.15">
+        </div>
+        <div class="form-row">
+          <label>Frais fixes (en devise)</label>
+          <input type="number" id="crypto-frais-fixe" step="0.01" inputmode="decimal" placeholder="5.00">
+        </div>
+      </div>
+      <div class="settings-help" style="margin-top:-10px;">
+        Utilisé pour calculer le "gain net réel" si tu liquides ta position. Ex : 0.15% pour un spread d'exchange, 5 USD de frais réseau. Laisse à 0 si non concerné.
+      </div>
+
       <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeCryptoModal()">Annuler</button>
         <button class="btn btn-danger" id="btn-delete-crypto" onclick="deleteCrypto()" style="display:none">Supprimer</button>
@@ -3769,18 +3785,30 @@
       const rendementDevise = balance - investiDevise;
       const rendementDevisePct = investiDevise > 0 ? (rendementDevise / investiDevise) * 100 : 0;
 
-      // Décomposition : gain yield (au taux d'achat) + impact FX
-      const gainYieldCHF = rendementDevise * tauxAchat;
-      const impactFX = balance * (rateActuel - tauxAchat);
+      // Décomposition : yield au taux actuel + impact FX sur le principal
+      const gainYieldCHF = rendementDevise * rateActuel;
+      const impactFX = investiDevise * (rateActuel - tauxAchat);
       const gainCHF = valeurActuelleCHF - investiCHF;
       const gainCHFPct = investiCHF > 0 ? (gainCHF / investiCHF) * 100 : 0;
+
+      // Simulation liquidation : balance − frais → CHF
+      const fraisPct = crypto.fraisLiquidationPct || 0;
+      const fraisFixe = crypto.fraisLiquidationDevise || 0;
+      const fraisTotalDevise = (balance * fraisPct / 100) + fraisFixe;
+      const balanceNette = Math.max(0, balance - fraisTotalDevise);
+      const valeurLiquideeCHF = balanceNette * rateActuel;
+      const gainLiquideCHF = valeurLiquideeCHF - investiCHF;
+      const gainLiquidePct = investiCHF > 0 ? (gainLiquideCHF / investiCHF) * 100 : 0;
+      const hasFrais = fraisPct > 0 || fraisFixe > 0;
 
       return {
         devise, investiCHF, investiDevise, balance,
         rateActuel, tauxAchat,
         valeurActuelleCHF, gainCHF, gainCHFPct,
         rendementDevise, rendementDevisePct,
-        gainYieldCHF, impactFX
+        gainYieldCHF, impactFX,
+        fraisPct, fraisFixe, fraisTotalDevise, balanceNette,
+        valeurLiquideeCHF, gainLiquideCHF, gainLiquidePct, hasFrais
       };
     }
 
@@ -3849,9 +3877,23 @@
                 <span class="text-mono">${fmtCHF(s.valeurActuelleCHF)}</span>
               </div>
               <div class="bilan-row bilan-gain ${bilanCls}">
-                <span>Gain total CHF</span>
+                <span>Gain total CHF ${s.hasFrais ? '<span style="opacity:0.7;font-size:13px;">(mid-market, sans frais)</span>' : ''}</span>
                 <span class="text-mono">${s.gainCHF >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.gainCHF))} (${s.gainCHFPct >= 0 ? '+' : '−'}${fmtPct(Math.abs(s.gainCHFPct))})</span>
               </div>
+              ${s.hasFrais ? `
+                <div class="bilan-row bilan-secondary" style="margin-top:8px;">
+                  <span>Frais estimés à la liquidation ${s.fraisPct > 0 ? '<span style="opacity:0.7;">(' + s.fraisPct + '% ' + (s.fraisFixe > 0 ? ' + ' + s.fraisFixe.toFixed(2) + ' fixe' : '') + ')</span>' : '<span style="opacity:0.7;">(' + s.fraisFixe.toFixed(2) + ' fixe)</span>'}</span>
+                  <span class="text-mono negative">−${s.fraisTotalDevise.toFixed(2)} ${s.devise} (soit −${fmtCHF2(s.fraisTotalDevise * s.rateActuel)})</span>
+                </div>
+                <div class="bilan-row">
+                  <span><strong>💸 Si tu liquides maintenant</strong></span>
+                  <span class="text-mono"><strong>${fmtCHF(s.valeurLiquideeCHF)}</strong></span>
+                </div>
+                <div class="bilan-row bilan-gain ${s.gainLiquideCHF >= 0 ? 'positive' : 'negative'}">
+                  <span>Gain net réel</span>
+                  <span class="text-mono">${s.gainLiquideCHF >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.gainLiquideCHF))} (${s.gainLiquidePct >= 0 ? '+' : '−'}${fmtPct(Math.abs(s.gainLiquidePct))})</span>
+                </div>
+              ` : ''}
             </div>
 
             <div class="etf-subsection">
@@ -3860,11 +3902,11 @@
               </div>
               <div class="crypto-decomp">
                 <div class="crypto-decomp-row">
-                  <span>Yield converti (au taux d'achat)</span>
+                  <span>Yield (converti au taux actuel)</span>
                   <span class="text-mono ${yieldCls}">${s.gainYieldCHF >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.gainYieldCHF))}</span>
                 </div>
                 <div class="crypto-decomp-row">
-                  <span>Impact change ${s.devise}/CHF</span>
+                  <span>Impact change ${s.devise}/CHF (sur le principal)</span>
                   <span class="text-mono ${fxCls}">${s.impactFX >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(s.impactFX))}</span>
                 </div>
                 <div class="crypto-decomp-row total ${bilanCls}">
@@ -3873,7 +3915,7 @@
                 </div>
               </div>
               <div class="settings-help" style="margin-top:10px;">
-                Le "Yield converti" représente ce que ton rendement en ${s.devise} vaudrait si le taux de change n'avait pas bougé. L'"Impact change" isole l'effet pur du taux de change.
+                Le "Yield" représente ce que vaut ton rendement en ${s.devise} si tu le liquides aujourd'hui (au taux actuel). L'"Impact change" isole ce que la variation du taux te fait gagner ou perdre sur ton capital initial investi.
               </div>
             </div>
             ${noRateWarning}
@@ -3895,6 +3937,8 @@
       document.getElementById('crypto-investi-devise').value = '';
       document.getElementById('crypto-balance').value = '';
       document.getElementById('crypto-date-balance').value = today;
+      document.getElementById('crypto-frais-pct').value = '';
+      document.getElementById('crypto-frais-fixe').value = '';
       document.getElementById('btn-delete-crypto').style.display = 'none';
       document.getElementById('modal-crypto-title').textContent = 'Nouveau protocol crypto';
 
@@ -3911,6 +3955,8 @@
           document.getElementById('crypto-investi-devise').value = c.investiDevise || '';
           document.getElementById('crypto-balance').value = c.balanceDevise || '';
           document.getElementById('crypto-date-balance').value = c.dateBalance || '';
+          document.getElementById('crypto-frais-pct').value = c.fraisLiquidationPct || '';
+          document.getElementById('crypto-frais-fixe').value = c.fraisLiquidationDevise || '';
         }
       }
       modal.classList.add('active');
@@ -3939,7 +3985,9 @@
         investiCHF,
         investiDevise,
         balanceDevise: isFinite(balanceSaisie) && balanceSaisie > 0 ? balanceSaisie : investiDevise,
-        dateBalance: document.getElementById('crypto-date-balance').value
+        dateBalance: document.getElementById('crypto-date-balance').value,
+        fraisLiquidationPct: parseFloat(document.getElementById('crypto-frais-pct').value) || 0,
+        fraisLiquidationDevise: parseFloat(document.getElementById('crypto-frais-fixe').value) || 0
       };
 
       if (editingCryptoId) {
