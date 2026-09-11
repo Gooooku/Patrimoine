@@ -3843,6 +3843,131 @@
       return fx ? fx.rate : 0;
     }
 
+    // Performance par année d'une position crypto (XIRR en USD et en CHF)
+    function computeCryptoAnnualPerformance(crypto) {
+      const yearsSet = new Set();
+      (crypto.mouvements || []).forEach(m => {
+        if (m.date) yearsSet.add(m.date.slice(0, 4));
+      });
+      (crypto.yields || []).forEach(y => {
+        if (y.date) yearsSet.add(y.date.slice(0, 4));
+      });
+      if (yearsSet.size === 0) return [];
+
+      const devise = crypto.devise || 'USD';
+      const rateActuel = getFxRate(devise);
+      const years = [...yearsSet].sort();
+      const currentYear = String(new Date().getFullYear());
+      const today = new Date().toISOString().slice(0, 10);
+      const result = [];
+
+      for (const year of years) {
+        const isCurrentYear = year === currentYear;
+        const yearStartDate = year + '-01-01';
+        const yearEndDate = isCurrentYear ? today : year + '-12-31';
+
+        // Position au début d'année (quantité devise + coût CHF)
+        let qtyStart = 0;
+        let coutStart = 0;
+        (crypto.mouvements || []).filter(m => (m.date || '') < yearStartDate).forEach(m => {
+          const md = m.montantDevise || 0;
+          const mc = m.montantCHF || 0;
+          const fr = m.fraisCHF || 0;
+          if (m.type === 'achat') {
+            qtyStart += md;
+            coutStart += mc + fr;
+          } else if (m.type === 'vente' && qtyStart > 0) {
+            const qtV = Math.min(md, qtyStart);
+            const pruAv = coutStart / qtyStart;
+            coutStart -= qtV * pruAv;
+            qtyStart -= qtV;
+          }
+        });
+        // Yields passés ajoutent à la quantité (sans coût)
+        (crypto.yields || []).filter(y => (y.date || '') < yearStartDate).forEach(y => {
+          qtyStart += y.montantDevise || 0;
+        });
+
+        // Mouvements et yields DANS l'année
+        const mouvIn = (crypto.mouvements || []).filter(m => {
+          const d = m.date || '';
+          return d >= yearStartDate && d <= yearEndDate;
+        });
+        const yieldsIn = (crypto.yields || []).filter(y => {
+          const d = y.date || '';
+          return d >= yearStartDate && d <= yearEndDate;
+        });
+
+        // Position à la fin d'année
+        let qtyEnd = qtyStart;
+        mouvIn.forEach(m => {
+          const md = m.montantDevise || 0;
+          if (m.type === 'achat') qtyEnd += md;
+          else if (m.type === 'vente' && qtyEnd > 0) qtyEnd = Math.max(0, qtyEnd - md);
+        });
+        yieldsIn.forEach(y => {
+          qtyEnd += y.montantDevise || 0;
+        });
+
+        const yieldRecu = yieldsIn.reduce((s, y) => s + (y.montantDevise || 0), 0);
+
+        // === XIRR en devise (rendement pur du protocol, sans FX) ===
+        // Les yields ne sont PAS des cashflows : ils restent dans la position → boostent qtyEnd
+        let rendementDeviseXirr = null;
+        {
+          const flows = [];
+          if (qtyStart > 0) flows.push({ date: yearStartDate, amount: -qtyStart });
+          mouvIn.forEach(m => {
+            const md = m.montantDevise || 0;
+            if (m.type === 'achat') flows.push({ date: m.date, amount: -md });
+            else if (m.type === 'vente') flows.push({ date: m.date, amount: md });
+          });
+          if (qtyEnd > 0) flows.push({ date: yearEndDate, amount: qtyEnd });
+          if (flows.length >= 2) {
+            const x = computeXIRR(flows);
+            rendementDeviseXirr = x != null ? x * 100 : null;
+          }
+        }
+
+        // === XIRR en CHF (rendement global yield + change) ===
+        let rendementCHFXirr = null;
+        {
+          const flows = [];
+          if (qtyStart > 0) flows.push({ date: yearStartDate, amount: -(qtyStart * rateActuel) });
+          mouvIn.forEach(m => {
+            const mc = m.montantCHF || 0;
+            const fr = m.fraisCHF || 0;
+            if (m.type === 'achat') flows.push({ date: m.date, amount: -(mc + fr) });
+            else if (m.type === 'vente') flows.push({ date: m.date, amount: mc - fr });
+          });
+          if (qtyEnd > 0) flows.push({ date: yearEndDate, amount: qtyEnd * rateActuel });
+          if (flows.length >= 2) {
+            const x = computeXIRR(flows);
+            rendementCHFXirr = x != null ? x * 100 : null;
+          }
+        }
+
+        // Note si période courte (< 90 jours)
+        let note = null;
+        if (rendementDeviseXirr != null || rendementCHFXirr != null) {
+          const firstMoment = qtyStart > 0
+            ? yearStartDate
+            : (mouvIn.length > 0 ? mouvIn.map(m => m.date).sort()[0] : yearStartDate);
+          const days = (new Date(yearEndDate) - new Date(firstMoment)) / 86400000;
+          if (days > 0 && days < 90) note = '*';
+        }
+
+        result.push({
+          year, isCurrentYear, note,
+          yieldRecu,
+          rendementDevise: rendementDeviseXirr,
+          rendementCHF: rendementCHFXirr,
+          devise
+        });
+      }
+      return result;
+    }
+
     function computeCryptoStats(crypto) {
       const devise = crypto.devise || 'USD';
       const mouv = [...(crypto.mouvements || [])].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
@@ -4046,6 +4171,64 @@
               </div>
               ${yieldsHtml}
             </div>
+
+            ${(() => {
+              const annual = computeCryptoAnnualPerformance(c);
+              if (annual.length === 0) return '';
+              let hasNote = false;
+              const rows = annual.slice().reverse().map(a => {
+                const trClasses = [];
+                if (a.isCurrentYear) trClasses.push('ytd');
+                if (a.note) trClasses.push('short');
+                const trCls = trClasses.join(' ');
+                const yieldCell = a.yieldRecu > 0
+                  ? `<td class="positive">+${a.yieldRecu.toFixed(2)} ${a.devise}</td>`
+                  : '<td>—</td>';
+                const devCell = a.rendementDevise != null
+                  ? `<td class="${a.note ? '' : (a.rendementDevise >= 0 ? 'positive' : 'negative')}">${a.rendementDevise >= 0 ? '+' : ''}${fmtPct(a.rendementDevise)}${a.note || ''}</td>`
+                  : '<td>—</td>';
+                const chfCell = a.rendementCHF != null
+                  ? `<td class="${a.note ? '' : (a.rendementCHF >= 0 ? 'positive' : 'negative')}">${a.rendementCHF >= 0 ? '+' : ''}${fmtPct(a.rendementCHF)}${a.note || ''}</td>`
+                  : '<td>—</td>';
+                if (a.note) hasNote = true;
+                return `
+                  <tr class="${trCls}">
+                    <td>${a.year}</td>
+                    ${yieldCell}
+                    ${devCell}
+                    ${chfCell}
+                  </tr>
+                `;
+              }).join('');
+              const noteHtml = hasNote
+                ? '<div class="settings-help" style="margin-top:10px;">* Position détenue moins de 90 jours dans l\'année — le rendement annualisé peut être trompeur.</div>'
+                : '';
+              return `
+                <div class="etf-subsection">
+                  <div class="etf-subsection-header">
+                    <span class="etf-subsection-title">📅 Performance par année</span>
+                  </div>
+                  <div class="annual-wrapper">
+                    <table class="annual-table">
+                      <thead>
+                        <tr>
+                          <th>Année</th>
+                          <th>Yield reçu</th>
+                          <th>Rend. ${c.devise || 'USD'} <span style="opacity:0.7;font-weight:400;">(protocol)</span></th>
+                          <th>Rend. CHF <span style="opacity:0.7;font-weight:400;">(avec change)</span></th>
+                        </tr>
+                      </thead>
+                      <tbody>${rows}</tbody>
+                    </table>
+                    ${noteHtml}
+                    <div class="settings-help" style="margin-top:10px;">
+                      <strong>Rend. ${c.devise || 'USD'}</strong> = rendement pur du protocol (yield), indépendant du change. XIRR annualisé prend en compte la date de chaque versement.<br>
+                      <strong>Rend. CHF</strong> = rendement global depuis le CHF (yield + effet du change USD/CHF). Estimation basée sur le taux actuel pour la valorisation.
+                    </div>
+                  </div>
+                </div>
+              `;
+            })()}
 
             ${noRateWarning}
           </div>
