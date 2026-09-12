@@ -838,6 +838,42 @@
       font-size: 13px;
     }
 
+    /* Rate history editor in tranche modal */
+    .rate-history-row {
+      display: grid;
+      grid-template-columns: 120px 90px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--bg);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .rate-history-date { font-weight: 600; }
+    .rate-history-taux { font-family: var(--font-mono); font-weight: 700; color: var(--primary-dark); }
+    .rate-history-note { color: var(--text-muted); font-size: 13px; }
+    .rate-history-form {
+      padding: 16px;
+      background: var(--primary-soft);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .rate-history-remove {
+      background: transparent;
+      border: none;
+      color: var(--danger-dark);
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: 700;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+    }
+    .rate-history-remove:hover { background: var(--danger-soft); }
+
     /* Crypto cards (accent ambre/gold) */
     .crypto-card {
       background: white;
@@ -1069,7 +1105,7 @@
             </table>
           </div>
           <div class="settings-help" style="margin-top:10px;">
-            Immo net = loyers − charges − intérêts (amort exclu : c'est de l'équité). Coût Cash = ce que la portion dormante du prêt te coûte en intérêts (estimation basée sur ton cash actuel × taux moyen). Total net = Immo + Bourse − Cash.
+            Immo net = loyers − charges − intérêts (amort exclu : c'est de l'équité). Coût Cash = ce que la portion dormante du prêt te coûte en intérêts — utilise le <strong>taux moyen historique</strong> de chaque année (si tu as renseigné l'historique des taux dans chaque tranche, sinon fallback sur le taux actuel). Total net = Immo + Bourse − Cash.
           </div>
         </div>
 
@@ -1198,6 +1234,31 @@
           <label>Taux actuel (%)</label>
           <input type="number" id="tranche-taux-variable" step="0.01" inputmode="decimal">
         </div>
+      </div>
+
+      <div class="section-title" style="margin-top:24px;">🕐 Historique des taux (optionnel)</div>
+      <div class="settings-help" style="margin-top:-8px;margin-bottom:12px;">
+        Enregistre les changements de taux passés pour cette tranche. La moyenne pondérée par jour est utilisée dans le "Coût Cash" du bilan par année.
+      </div>
+
+      <div id="rate-history-list" style="margin-bottom:14px;"></div>
+
+      <div class="rate-history-form">
+        <div class="form-row-inline">
+          <div class="form-row">
+            <label>Date de début</label>
+            <input type="date" id="rate-history-date">
+          </div>
+          <div class="form-row">
+            <label>Taux effectif (%)</label>
+            <input type="number" id="rate-history-taux" step="0.001" inputmode="decimal" placeholder="1.500">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Note (optionnel)</label>
+          <input type="text" id="rate-history-note" placeholder="Ex: refix SARON, expiration fixe...">
+        </div>
+        <button class="btn btn-secondary" onclick="addRateHistoryEntry()" style="align-self:flex-start;">+ Ajouter cette entrée</button>
       </div>
 
       <div class="modal-actions">
@@ -1799,6 +1860,104 @@
       return trancheMontantEffectif(t) * trancheInterestRate(t) / 100 / 12;
     }
 
+    // ==== HISTORIQUE DES TAUX ====
+    // Retourne le taux effectif moyen d'une tranche sur une année, pondéré par nombre de jours
+    function trancheAvgRateForYear(tranche, year) {
+      const history = [...(tranche.rateHistory || [])].sort((a, b) => 
+        (a.dateDebut || '').localeCompare(b.dateDebut || '')
+      );
+      // Si pas d'historique : utilise le taux actuel
+      if (history.length === 0) return trancheInterestRate(tranche);
+
+      const yearStartMs = new Date(year + '-01-01').getTime();
+      const yearEndMs = new Date(year + '-12-31').getTime();
+      const dayMs = 86400000;
+      const currentRate = trancheInterestRate(tranche);
+
+      let totalDays = 0;
+      let weightedSum = 0;
+
+      // Période avant la première entrée d'historique : on ne compte pas
+      // (l'utilisateur doit ajouter une entrée au démarrage si il veut inclure)
+      for (let i = 0; i < history.length; i++) {
+        const entry = history[i];
+        const entryStartMs = new Date(entry.dateDebut).getTime();
+        // Fin de cette entrée = début de la suivante, ou fin d'année si dernière
+        const entryEndMs = i < history.length - 1
+          ? new Date(history[i + 1].dateDebut).getTime() - dayMs
+          : yearEndMs;
+        // Chevauchement avec l'année cible
+        const overlapStart = Math.max(entryStartMs, yearStartMs);
+        const overlapEnd = Math.min(entryEndMs, yearEndMs);
+        if (overlapEnd >= overlapStart) {
+          const days = (overlapEnd - overlapStart) / dayMs + 1;
+          totalDays += days;
+          weightedSum += (entry.taux || 0) * days;
+        }
+      }
+
+      // La période APRES la dernière entrée jusqu'à fin d'année utilise implicitement 
+      // la dernière entrée (déjà couvert dans la boucle si dernière entrée)
+      // Si aucun jour couvert dans l'année, retour au taux actuel
+      return totalDays > 0 ? weightedSum / totalDays : currentRate;
+    }
+
+    // Taux moyen pondéré global pour une année donnée (toutes tranches)
+    function tauxMoyenPondereForYear(year) {
+      let totalMontant = 0;
+      let weightedSum = 0;
+      data.pret.tranches.forEach(t => {
+        const montant = t.montant || 0;
+        const rate = trancheAvgRateForYear(t, year);
+        totalMontant += montant;
+        weightedSum += montant * rate;
+      });
+      return totalMontant > 0 ? weightedSum / totalMontant : 0;
+    }
+
+    // ==== ÉDITEUR HISTORIQUE (dans la modal tranche) ====
+    let editingRateHistory = [];
+
+    function renderRateHistoryEditor() {
+      const container = document.getElementById('rate-history-list');
+      if (!container) return;
+      if (editingRateHistory.length === 0) {
+        container.innerHTML = '<div class="empty-inline">Aucune entrée d\'historique enregistrée.</div>';
+        return;
+      }
+      const sorted = [...editingRateHistory].sort((a, b) => 
+        (b.dateDebut || '').localeCompare(a.dateDebut || '')
+      );
+      container.innerHTML = sorted.map(e => `
+        <div class="rate-history-row">
+          <span class="rate-history-date">${formatDate(e.dateDebut)}</span>
+          <span class="rate-history-taux">${(e.taux || 0).toFixed(3)}%</span>
+          <span class="rate-history-note">${escapeHtml(e.note || '')}</span>
+          <button class="rate-history-remove" onclick="removeRateHistoryEntry('${e.id}')" title="Supprimer">×</button>
+        </div>
+      `).join('');
+    }
+
+    function addRateHistoryEntry() {
+      const date = document.getElementById('rate-history-date').value;
+      const taux = parseFloat(document.getElementById('rate-history-taux').value);
+      const note = document.getElementById('rate-history-note').value.trim();
+      if (!date || !isFinite(taux)) {
+        alert('Date et taux requis');
+        return;
+      }
+      editingRateHistory.push({ id: uid(), dateDebut: date, taux, note });
+      document.getElementById('rate-history-date').value = '';
+      document.getElementById('rate-history-taux').value = '';
+      document.getElementById('rate-history-note').value = '';
+      renderRateHistoryEditor();
+    }
+
+    function removeRateHistoryEntry(id) {
+      editingRateHistory = editingRateHistory.filter(e => e.id !== id);
+      renderRateHistoryEditor();
+    }
+
     function totalTranchesMontant() {
       return data.pret.tranches.reduce((s, t) => s + (t.montant || 0), 0);
     }
@@ -2025,11 +2184,9 @@
       const currentYear = new Date().getFullYear();
       const totalPrixBiens = data.biens.reduce((s, b) => s + (b.prixAchat || 0), 0);
 
-      // Coût annuel du cash dormant = cash pocket × taux moyen (estimation basée sur situation actuelle)
+      // Cash pocket estimé (constant, basé sur situation actuelle)
       const cashActuel = pocheCashMontant();
-      const tauxMoy = tauxMoyenPondere();
-      const cashCostAnnuel = cashActuel > 0 && tauxMoy > 0 ? cashActuel * tauxMoy / 100 : 0;
-      const hasCashCost = cashCostAnnuel > 0;
+      const hasCashPocket = cashActuel > 0;
 
       return years.map(year => {
         let loyers = 0, charges = 0, interets = 0, amort = 0;
@@ -2084,9 +2241,10 @@
         });
         const boursePct = bourseHasData && bourseBase > 0 ? (bourseGain / bourseBase) * 100 : null;
 
-        // Cash : coût annuel (estimation constante basée sur cash actuel × taux moyen)
-        const cashCost = hasCashCost ? cashCostAnnuel : null;
-        const cashPct = hasCashCost ? -tauxMoy : null;
+        // Cash : coût annuel avec taux historique de l'année (via rateHistory des tranches)
+        const tauxAnnee = tauxMoyenPondereForYear(year);
+        const cashCost = hasCashPocket && tauxAnnee > 0 ? cashActuel * tauxAnnee / 100 : null;
+        const cashPct = cashCost != null ? -tauxAnnee : null;
 
         const totalNet = (immoNet || 0) + (bourseHasData ? bourseGain : 0) - (cashCost || 0);
 
@@ -2451,6 +2609,7 @@
     // ==== TRANCHE MODAL ====
     function openTrancheModal(id) {
       editingTrancheId = id || null;
+      editingRateHistory = [];
       const modal = document.getElementById('modal-tranche');
       const title = document.getElementById('modal-tranche-title');
       const deleteBtn = document.getElementById('btn-delete-tranche');
@@ -2466,6 +2625,9 @@
       document.getElementById('tranche-saron-spread').value = '';
       document.getElementById('tranche-saron-refix').value = '3';
       document.getElementById('tranche-taux-variable').value = '';
+      document.getElementById('rate-history-date').value = '';
+      document.getElementById('rate-history-taux').value = '';
+      document.getElementById('rate-history-note').value = '';
 
       if (id) {
         const t = data.pret.tranches.find(x => x.id === id);
@@ -2486,6 +2648,7 @@
           } else {
             document.getElementById('tranche-taux-variable').value = t.taux || '';
           }
+          editingRateHistory = [...(t.rateHistory || [])];
         }
       } else {
         title.textContent = 'Nouvelle tranche';
@@ -2493,12 +2656,14 @@
       }
 
       onTrancheTypeChange();
+      renderRateHistoryEditor();
       modal.classList.add('active');
     }
 
     function closeTrancheModal() {
       document.getElementById('modal-tranche').classList.remove('active');
       editingTrancheId = null;
+      editingRateHistory = [];
     }
 
     function onTrancheTypeChange() {
@@ -2530,6 +2695,9 @@
       } else {
         tranche.taux = parseFloat(document.getElementById('tranche-taux-variable').value) || 0;
       }
+
+      // Historique des taux
+      tranche.rateHistory = editingRateHistory;
 
       if (editingTrancheId) {
         const idx = data.pret.tranches.findIndex(x => x.id === editingTrancheId);
