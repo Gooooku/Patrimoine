@@ -4062,6 +4062,18 @@
           ? [...c.mouvements].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map(m => {
               const tauxMouv = (m.montantDevise || 0) > 0 ? (m.montantCHF || 0) / (m.montantDevise || 0) : 0;
               const chfDisplay = (m.montantCHF || 0) + (m.type === 'vente' ? -(m.fraisCHF || 0) : (m.fraisCHF || 0));
+              // Badge FX pour les achats : gain/perte si on rechangeait au taux actuel
+              let fxBadge = '';
+              if (m.type === 'achat' && s.rateActuel > 0 && (m.montantDevise || 0) > 0) {
+                const coutTotal = (m.montantCHF || 0) + (m.fraisCHF || 0);
+                const tauxEffectif = coutTotal / m.montantDevise;
+                const valeurActuelleAchat = m.montantDevise * s.rateActuel;
+                const fxGain = valeurActuelleAchat - coutTotal;
+                const fxPct = coutTotal > 0 ? (fxGain / coutTotal) * 100 : 0;
+                const cls = fxGain >= 0 ? 'positive' : 'negative';
+                const sign = fxGain >= 0 ? '+' : '−';
+                fxBadge = `<span class="mouvement-return ${cls}" title="Si tu reconvertis ces ${s.devise} en CHF au taux actuel ${s.rateActuel.toFixed(4)} : ${sign}${fmtCHF2(Math.abs(fxGain))}">${sign}${fmtCHF2(Math.abs(fxGain))} FX (${sign}${fmtPct(Math.abs(fxPct))})</span>`;
+              }
               return `
                 <div class="mouvement" onclick="openCryptoMouvementModal('${c.id}', '${m.id}')">
                   <div>
@@ -4070,7 +4082,10 @@
                     <span class="mouvement-detail">${(m.montantDevise || 0).toFixed(2)} ${s.devise} @ ${tauxMouv.toFixed(4)}</span>
                     ${(m.fraisCHF || 0) > 0 ? `<span class="mouvement-frais"> · frais ${fmtCHF2(m.fraisCHF)}</span>` : ''}
                   </div>
-                  <span class="mouvement-total text-mono">${m.type === 'achat' ? '−' : '+'}${fmtCHF2(chfDisplay)}</span>
+                  <div class="mouvement-right">
+                    ${fxBadge}
+                    <span class="mouvement-total text-mono">${m.type === 'achat' ? '−' : '+'}${fmtCHF2(chfDisplay)}</span>
+                  </div>
                 </div>
               `;
             }).join('')
@@ -4171,6 +4186,61 @@
               </div>
               ${yieldsHtml}
             </div>
+
+            ${(() => {
+              // Analyse par achat : FX gain agrégé sur tous les achats
+              const achats = (c.mouvements || []).filter(m => m.type === 'achat');
+              if (achats.length === 0 || s.rateActuel === 0) return '';
+              let totalCoutCHF = 0;
+              let totalValeurActuelleCHF = 0;
+              achats.forEach(m => {
+                const cout = (m.montantCHF || 0) + (m.fraisCHF || 0);
+                totalCoutCHF += cout;
+                totalValeurActuelleCHF += (m.montantDevise || 0) * s.rateActuel;
+              });
+              const totalFxGain = totalValeurActuelleCHF - totalCoutCHF;
+              const totalFxPct = totalCoutCHF > 0 ? (totalFxGain / totalCoutCHF) * 100 : 0;
+              const yieldTotal = s.yieldsTotal || 0;
+              const yieldCHF = yieldTotal * s.rateActuel;
+              const gainTotal = totalFxGain + yieldCHF;
+              const gainPct = totalCoutCHF > 0 ? (gainTotal / totalCoutCHF) * 100 : 0;
+              const fxCls = totalFxGain >= 0 ? 'positive' : 'negative';
+              const totalCls = gainTotal >= 0 ? 'positive' : 'negative';
+              return `
+                <div class="etf-subsection">
+                  <div class="etf-subsection-header">
+                    <span class="etf-subsection-title">🧮 Analyse par achat (au taux actuel)</span>
+                  </div>
+                  <div class="crypto-decomp">
+                    <div class="crypto-decomp-row">
+                      <span>Total investi (${achats.length} achat${achats.length > 1 ? 's' : ''}, frais inclus)</span>
+                      <span class="text-mono">${fmtCHF(totalCoutCHF)}</span>
+                    </div>
+                    <div class="crypto-decomp-row">
+                      <span>Valeur actuelle du principal (si reconverti maintenant)</span>
+                      <span class="text-mono">${fmtCHF(totalValeurActuelleCHF)}</span>
+                    </div>
+                    <div class="crypto-decomp-row ${fxCls}">
+                      <span>→ Gain FX sur principal</span>
+                      <span class="text-mono">${totalFxGain >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(totalFxGain))} (${totalFxGain >= 0 ? '+' : '−'}${fmtPct(Math.abs(totalFxPct))})</span>
+                    </div>
+                    ${yieldTotal > 0 ? `
+                      <div class="crypto-decomp-row positive">
+                        <span>+ Yield cumulé (${yieldTotal.toFixed(2)} ${s.devise} × ${s.rateActuel.toFixed(4)})</span>
+                        <span class="text-mono">+${fmtCHF2(yieldCHF)}</span>
+                      </div>
+                    ` : ''}
+                    <div class="crypto-decomp-row total ${totalCls}">
+                      <span>= Gain total si liquidé maintenant</span>
+                      <span class="text-mono">${gainTotal >= 0 ? '+' : '−'}${fmtCHF2(Math.abs(gainTotal))} (${gainTotal >= 0 ? '+' : '−'}${fmtPct(Math.abs(gainPct))})</span>
+                    </div>
+                  </div>
+                  <div class="settings-help" style="margin-top:10px;">
+                    Détail achat par achat visible dans la liste des mouvements ci-dessus (badge à côté de chaque achat).
+                  </div>
+                </div>
+              `;
+            })()}
 
             ${(() => {
               const annual = computeCryptoAnnualPerformance(c);
